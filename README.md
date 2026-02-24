@@ -156,3 +156,37 @@ Notes:
 python -m phase_one.run_phase1 /path/to/imagenet_val outputs/phase_one --device cuda
 ```
 - See `phase_one/README.md` for direct per-experiment commands.
+- Use `--save-every N` to control periodic partial checkpoint frequency (default `1`).
+
+## Phase 2 (paper_outline_v3)
+- Phase 2 implementation lives under `phase_two/`.
+- Run all Phase 2 experiments:
+```bash
+python -m phase_two.run_phase2 /path/to/imagenet_val outputs/phase_two --device cuda
+```
+- See `phase_two/README.md` for direct per-experiment commands and retrieval JSON format.
+
+## Phase 3 (paper_outline_v3)
+- Phase 3 implementation lives under `phase_three/`.
+- Run core Phase 3 image experiments:
+```bash
+python -m phase_three.run_phase3 /path/to/imagenet_val outputs/phase_three --device cuda
+```
+- To include Exp 9 MOT evaluation, pass `--only exp9 --exp9-cost-json /path/to/costs.json`.
+- See `phase_three/README.md` for direct commands and the Exp 9 input schema.
+
+## Phase 4 (paper_outline_v3, optional)
+- Phase 4 implementation lives under `phase_four/`.
+- Run optional Phase 4 experiments:
+```bash
+python -m phase_four.run_phase4 /path/to/imagenet_val outputs/phase_four --device cuda
+```
+- See `phase_four/README.md` for prompt-file format and concrete-style search details.
+
+## Full Pipeline Runner
+- Run multiple phases in sequence:
+```bash
+python run_all_phases.py /path/to/imagenet_val outputs/full_run --phases 1,2,3 --device cuda
+```
+- Include Phase 3 Exp 9 with `--exp9-cost-json /path/to/mot_costs.json`.
+- Add `--save-every N` to tune partial checkpoint cadence across phases.

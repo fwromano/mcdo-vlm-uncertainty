@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--dropout", type=float, default=0.01)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
 
     parser.add_argument("--exp0-num-images", type=int, default=500)
     parser.add_argument("--exp0-models", type=str, default="clip_b32,siglip2_b16,siglip2_so400m")
@@ -101,6 +102,8 @@ def main() -> None:
                 args.device,
                 "--seed",
                 str(args.seed),
+                "--save-every",
+                str(args.save_every),
             ]
         )
 
@@ -130,6 +133,8 @@ def main() -> None:
                 args.device,
                 "--seed",
                 str(args.seed),
+                "--save-every",
+                str(args.save_every),
             ]
         )
 
@@ -159,6 +164,8 @@ def main() -> None:
                 args.device,
                 "--seed",
                 str(args.seed),
+                "--save-every",
+                str(args.save_every),
             ]
         )
 
@@ -189,6 +196,8 @@ def main() -> None:
             args.device,
             "--seed",
             str(args.seed),
+            "--save-every",
+            str(args.save_every),
         ]
         if args.exp5_class_map:
             cmd.extend(["--class-map", args.exp5_class_map])

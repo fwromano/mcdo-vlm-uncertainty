@@ -18,6 +18,7 @@ from phase_one.common import (
     save_json,
     save_manifest,
     set_all_seeds,
+    should_save_checkpoint,
 )
 
 
@@ -35,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
     return parser.parse_args()
 
 
@@ -133,6 +135,31 @@ def main() -> None:
         trial_offdiag_post.append(offdiag_post)
         trial_eigs_pre.append(eigs_pre)
         trial_eigs_post.append(eigs_post)
+
+        completed = trial_idx + 1
+        if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
+            np.savez_compressed(
+                out_dir / "exp0b_geometry_trials_partial.npz",
+                paths=np.asarray(sampled_paths),
+                trace_pre=np.stack(trial_trace_pre, axis=0),
+                trace_post=np.stack(trial_trace_post, axis=0),
+                angular_var=np.stack(trial_angular, axis=0),
+                offdiag_pre=np.stack(trial_offdiag_pre, axis=0),
+                offdiag_post=np.stack(trial_offdiag_post, axis=0),
+                eigs_pre=np.stack(trial_eigs_pre, axis=0),
+                eigs_post=np.stack(trial_eigs_post, axis=0),
+                completed_trials=np.asarray([completed], dtype=np.int64),
+                total_trials=np.asarray([args.trials], dtype=np.int64),
+            )
+            save_json(
+                {
+                    "experiment": "exp0b_norm_geometry",
+                    "model": args.model,
+                    "completed_trials": completed,
+                    "total_trials": args.trials,
+                },
+                str(out_dir / "exp0b_progress.json"),
+            )
 
     arr_trace_pre = np.stack(trial_trace_pre, axis=0)
     arr_trace_post = np.stack(trial_trace_post, axis=0)

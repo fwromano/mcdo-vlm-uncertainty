@@ -120,6 +120,12 @@ def load_manifest(manifest_path: str) -> List[str]:
     return [str(Path(p)) for p in paths]
 
 
+def should_save_checkpoint(completed: int, total: int, every: int) -> bool:
+    if every <= 0:
+        return False
+    return completed % every == 0 or completed >= total
+
+
 def build_loader(image_paths: Sequence[str], batch_size: int, num_workers: int) -> DataLoader:
     dataset = ImagePathDataset(image_paths)
     return DataLoader(
@@ -348,6 +354,10 @@ def run_mc_trial(
     passes: int,
     collect_pass_features: bool = False,
     compute_angular: bool = False,
+    progress: bool = False,
+    progress_desc: str = "",
+    progress_position: int = 0,
+    progress_leave: bool = False,
 ) -> Dict[str, Any]:
     num_samples = len(loader.dataset)
 
@@ -360,7 +370,23 @@ def run_mc_trial(
     pass_post = None
     path_order: List[str] = []
 
-    for pass_idx in range(passes):
+    pass_iter: Any = range(passes)
+    if progress:
+        try:
+            from tqdm.auto import tqdm
+
+            pass_iter = tqdm(
+                pass_iter,
+                total=passes,
+                desc=(progress_desc or "MC passes"),
+                position=progress_position,
+                leave=progress_leave,
+                dynamic_ncols=True,
+            )
+        except Exception:  # noqa: BLE001
+            pass_iter = range(passes)
+
+    for pass_idx in pass_iter:
         offset = 0
         current_paths: List[str] = []
         for images, paths, _ in loader:
@@ -395,6 +421,9 @@ def run_mc_trial(
             path_order = current_paths
         elif current_paths != path_order:
             raise RuntimeError("DataLoader order changed between MC passes. Use shuffle=False.")
+
+    if progress and hasattr(pass_iter, "close"):
+        pass_iter.close()
 
     if sum_pre is None or sq_pre is None or sum_post is None or sq_post is None:
         raise RuntimeError("No features were collected. Check dataloader/input paths.")

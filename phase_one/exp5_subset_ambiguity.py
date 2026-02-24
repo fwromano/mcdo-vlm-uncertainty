@@ -22,6 +22,7 @@ from phase_one.common import (
     save_json,
     save_manifest,
     set_all_seeds,
+    should_save_checkpoint,
     spearman_safe,
 )
 
@@ -48,6 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
     return parser.parse_args()
 
 
@@ -127,6 +129,29 @@ def main() -> None:
             vlm.ensure_uniform_dropout(args.dropout)
             trial = run_mc_trial(vlm=vlm, loader=loader, passes=args.passes, collect_pass_features=False)
             uncertainty_trials.append(trial["trace_pre"].numpy())
+
+            completed = trial_idx + 1
+            if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
+                unc_partial = np.stack(uncertainty_trials, axis=0)
+                np.savez_compressed(
+                    out_dir / f"exp5_subset_{model_key}_partial.npz",
+                    paths=np.asarray(sampled_paths),
+                    uncertainty_trials=unc_partial,
+                    margin=margin_arr,
+                    entropy=entropy_arr,
+                    prompt_sensitivity=prompt_var_arr,
+                    completed_trials=np.asarray([completed], dtype=np.int64),
+                    total_trials=np.asarray([args.trials], dtype=np.int64),
+                )
+                save_json(
+                    {
+                        "experiment": "exp5_subset_ambiguity",
+                        "model": model_key,
+                        "completed_trials": completed,
+                        "total_trials": args.trials,
+                    },
+                    str(out_dir / f"exp5_subset_{model_key}_progress.json"),
+                )
 
         unc_trials_arr = np.stack(uncertainty_trials, axis=0)
         uncertainty = unc_trials_arr.mean(axis=0)

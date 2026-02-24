@@ -18,6 +18,7 @@ from phase_one.common import (
     save_json,
     save_manifest,
     set_all_seeds,
+    should_save_checkpoint,
 )
 
 
@@ -40,6 +41,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--no-progress", action="store_true", help="Disable per-trial/per-pass progress output")
+    parser.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
     return parser.parse_args()
 
 
@@ -56,6 +59,7 @@ def status_from_metrics(metrics: Dict[str, float]) -> str:
 
 def main() -> None:
     args = parse_args()
+    show_progress = not args.no_progress
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -88,12 +92,43 @@ def main() -> None:
             trial_post: List[np.ndarray] = []
 
             for trial_idx in range(args.trials):
+                print(f"[Exp0] {model_key} | T={passes} | trial {trial_idx + 1}/{args.trials}")
                 seed = args.seed + 100_000 * passes + trial_idx
                 set_all_seeds(seed)
                 vlm.ensure_uniform_dropout(args.dropout)
-                trial = run_mc_trial(vlm=vlm, loader=loader, passes=passes, collect_pass_features=False)
+                trial = run_mc_trial(
+                    vlm=vlm,
+                    loader=loader,
+                    passes=passes,
+                    collect_pass_features=False,
+                    progress=show_progress,
+                    progress_desc=f"{model_key} T={passes} trial {trial_idx + 1}/{args.trials}",
+                    progress_leave=False,
+                )
                 trial_pre.append(trial["trace_pre"].numpy())
                 trial_post.append(trial["trace_post"].numpy())
+
+                completed = trial_idx + 1
+                if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
+                    np.savez_compressed(
+                        model_out / f"exp0_trials_T{passes}_partial.npz",
+                        paths=np.asarray(sampled_paths),
+                        trial_pre=np.stack(trial_pre, axis=0),
+                        trial_post=np.stack(trial_post, axis=0),
+                        completed_trials=np.asarray([completed], dtype=np.int64),
+                        total_trials=np.asarray([args.trials], dtype=np.int64),
+                        passes=np.asarray([passes], dtype=np.int64),
+                    )
+                    save_json(
+                        {
+                            "experiment": "exp0_nested_mc",
+                            "model": model_key,
+                            "passes": passes,
+                            "completed_trials": completed,
+                            "total_trials": args.trials,
+                        },
+                        str(model_out / f"exp0_progress_T{passes}.json"),
+                    )
 
             pre_arr = np.stack(trial_pre, axis=0)
             post_arr = np.stack(trial_post, axis=0)

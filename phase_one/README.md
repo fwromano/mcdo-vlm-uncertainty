@@ -35,3 +35,4 @@ python -m phase_one.exp5_subset_ambiguity /path/to/imagenet_val outputs/phase_on
 - The scripts inject uniform dropout into **vision linear layers** for MC sampling.
 - Exp 5 class prompts default to folder names (or mapped labels via `--class-map`).
 - Each experiment saves both a compact `*.json` summary and `*.npz` arrays.
+- Long runs save periodic partial artifacts by default (`--save-every 1`); set `--save-every N` to reduce checkpoint frequency.

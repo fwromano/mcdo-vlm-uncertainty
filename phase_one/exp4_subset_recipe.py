@@ -18,6 +18,7 @@ from phase_one.common import (
     save_json,
     save_manifest,
     set_all_seeds,
+    should_save_checkpoint,
 )
 
 
@@ -35,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
     return parser.parse_args()
 
 
@@ -84,6 +86,26 @@ def main() -> None:
             )
             trials_trace.append(trial["trace_pre"].numpy())
             trials_angular.append(trial["angular_var"].numpy())
+
+            completed = trial_idx + 1
+            if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
+                np.savez_compressed(
+                    out_dir / f"exp4_subset_{model_key}_trials_partial.npz",
+                    paths=np.asarray(sampled_paths),
+                    trace_pre=np.stack(trials_trace, axis=0),
+                    angular_var=np.stack(trials_angular, axis=0),
+                    completed_trials=np.asarray([completed], dtype=np.int64),
+                    total_trials=np.asarray([args.trials], dtype=np.int64),
+                )
+                save_json(
+                    {
+                        "experiment": "exp4_subset_recipe",
+                        "model": model_key,
+                        "completed_trials": completed,
+                        "total_trials": args.trials,
+                    },
+                    str(out_dir / f"exp4_subset_{model_key}_progress.json"),
+                )
 
         arr_trace = np.stack(trials_trace, axis=0)
         arr_angular = np.stack(trials_angular, axis=0)
