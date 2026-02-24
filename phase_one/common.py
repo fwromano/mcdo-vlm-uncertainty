@@ -20,6 +20,7 @@ DEFAULT_PROMPT_TEMPLATES = [
     "a {}",
     "an image of a {}",
 ]
+_PRECOMPUTED_PIXEL_CACHE: Dict[Tuple[int, int, str, bool], Tuple[torch.Tensor, List[str]]] = {}
 
 
 @dataclass(frozen=True)
@@ -250,21 +251,25 @@ class VisionLanguageModel:
         pixel_values = encoded["pixel_values"]
         return pixel_values
 
-    @torch.no_grad()
-    def encode_images(self, images: Sequence[Image.Image], normalize: bool = False) -> torch.Tensor:
-        pixel_values = self._pixel_values_from_pil(images).to(self.device)
+    @torch.inference_mode()
+    def encode_pixel_values(self, pixel_values: torch.Tensor, normalize: bool = False) -> torch.Tensor:
+        pixel_values = pixel_values.to(self.device, non_blocking=True)
 
         if self.spec.backend == "open_clip":
             feats = self.model.encode_image(pixel_values, normalize=normalize)
             return feats.float()
 
-        feats = self.model.get_image_features(pixel_values=pixel_values)
-        feats = feats.float()
+        feats = self.model.get_image_features(pixel_values=pixel_values).float()
         if normalize:
             feats = F.normalize(feats, dim=-1)
         return feats
 
-    @torch.no_grad()
+    @torch.inference_mode()
+    def encode_images(self, images: Sequence[Image.Image], normalize: bool = False) -> torch.Tensor:
+        pixel_values = self._pixel_values_from_pil(images)
+        return self.encode_pixel_values(pixel_values, normalize=normalize)
+
+    @torch.inference_mode()
     def encode_texts(self, texts: Sequence[str], normalize: bool = True) -> torch.Tensor:
         if self.spec.backend == "open_clip":
             tokens = self.text_processor(list(texts)).to(self.device)
@@ -348,6 +353,39 @@ def set_all_seeds(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def clear_precomputed_pixel_cache() -> None:
+    _PRECOMPUTED_PIXEL_CACHE.clear()
+
+
+def precompute_pixel_values(
+    vlm: VisionLanguageModel,
+    loader: DataLoader,
+    to_device: bool = True,
+    use_cache: bool = True,
+) -> Tuple[torch.Tensor, List[str]]:
+    cache_key = (id(vlm), id(loader), vlm.device, bool(to_device))
+    if use_cache and cache_key in _PRECOMPUTED_PIXEL_CACHE:
+        pixel_values, paths = _PRECOMPUTED_PIXEL_CACHE[cache_key]
+        return pixel_values, list(paths)
+
+    all_pixels: List[torch.Tensor] = []
+    all_paths: List[str] = []
+    for images, paths, _ in loader:
+        all_pixels.append(vlm._pixel_values_from_pil(images))
+        all_paths.extend(paths)
+
+    if not all_pixels:
+        raise RuntimeError("No images found while precomputing pixel tensors.")
+
+    pixel_values = torch.cat(all_pixels, dim=0)
+    if to_device:
+        pixel_values = pixel_values.to(vlm.device, non_blocking=True)
+
+    if use_cache:
+        _PRECOMPUTED_PIXEL_CACHE[cache_key] = (pixel_values, list(all_paths))
+    return pixel_values, all_paths
+
+
 def run_mc_trial(
     vlm: VisionLanguageModel,
     loader: DataLoader,
@@ -358,8 +396,12 @@ def run_mc_trial(
     progress_desc: str = "",
     progress_position: int = 0,
     progress_leave: bool = False,
+    use_precomputed_pixels: bool = True,
+    cache_precomputed_pixels: bool = True,
+    precompute_to_device: bool = True,
 ) -> Dict[str, Any]:
     num_samples = len(loader.dataset)
+    batch_size = int(loader.batch_size) if isinstance(loader.batch_size, int) and loader.batch_size > 0 else num_samples
 
     sum_pre = None
     sq_pre = None
@@ -369,6 +411,30 @@ def run_mc_trial(
     pass_pre = None
     pass_post = None
     path_order: List[str] = []
+    pixel_values: Optional[torch.Tensor] = None
+
+    if use_precomputed_pixels:
+        try:
+            pixel_values, path_order = precompute_pixel_values(
+                vlm=vlm,
+                loader=loader,
+                to_device=precompute_to_device,
+                use_cache=cache_precomputed_pixels,
+            )
+        except RuntimeError as exc:
+            message = str(exc).lower()
+            oom_like = "out of memory" in message or " oom" in message or message.endswith("oom")
+            if precompute_to_device and oom_like:
+                if torch.cuda.is_available() and vlm.device.startswith("cuda"):
+                    torch.cuda.empty_cache()
+                pixel_values, path_order = precompute_pixel_values(
+                    vlm=vlm,
+                    loader=loader,
+                    to_device=False,
+                    use_cache=cache_precomputed_pixels,
+                )
+            else:
+                raise
 
     pass_iter: Any = range(passes)
     if progress:
@@ -387,6 +453,33 @@ def run_mc_trial(
             pass_iter = range(passes)
 
     for pass_idx in pass_iter:
+        if pixel_values is not None:
+            for offset in range(0, num_samples, batch_size):
+                batch = pixel_values[offset : offset + batch_size]
+                pre = vlm.encode_pixel_values(batch, normalize=False).detach().cpu().to(torch.float64)
+                post = F.normalize(pre, dim=-1)
+
+                bsz = pre.shape[0]
+                if sum_pre is None:
+                    dim = pre.shape[1]
+                    sum_pre = torch.zeros((num_samples, dim), dtype=torch.float64)
+                    sq_pre = torch.zeros_like(sum_pre)
+                    sum_post = torch.zeros_like(sum_pre)
+                    sq_post = torch.zeros_like(sum_pre)
+                    if collect_pass_features:
+                        pass_pre = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
+                        pass_post = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
+
+                sum_pre[offset : offset + bsz] += pre
+                sq_pre[offset : offset + bsz] += pre * pre
+                sum_post[offset : offset + bsz] += post
+                sq_post[offset : offset + bsz] += post * post
+
+                if collect_pass_features:
+                    pass_pre[pass_idx, offset : offset + bsz] = pre.float()
+                    pass_post[pass_idx, offset : offset + bsz] = post.float()
+            continue
+
         offset = 0
         current_paths: List[str] = []
         for images, paths, _ in loader:
