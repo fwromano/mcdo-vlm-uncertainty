@@ -1,4 +1,4 @@
-name: mcdo-clip-uncertainty
+name: mcdo-vlm-uncertaintiy
 channels:
   - pytorch
   - nvidia

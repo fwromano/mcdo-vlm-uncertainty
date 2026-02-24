@@ -5,6 +5,8 @@ __pycache__/
 data/processed/
 data/raw/cifar-100-python/
 data/raw/cifar-100-python.tar.gz
+data/raw/hf_cache/
+data/raw/imagenet1k_hf/
 
 # Local run outputs
 outputs/phase1_gpu_20260224/

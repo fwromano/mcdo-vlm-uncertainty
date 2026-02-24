@@ -1,7 +1,7 @@
 [project]
-name = "mcdo-clip-uncertainty"
+name = "mcdo-vlm-uncertaintiy"
 version = "0.0.1"
-description = "MC Dropout uncertainty experiments for CLIP"
+description = "MC Dropout uncertainty experiments for VLMs"
 authors = [{name = "MC Dropout Team", email = "mcdo@example.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
