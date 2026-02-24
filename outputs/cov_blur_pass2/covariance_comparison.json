@@ -1,0 +1,16 @@
+{
+  "passes": 2,
+  "dropout": 0.01,
+  "count": 2700,
+  "blur": {
+    "kernel_size": 11,
+    "sigma": 2.0
+  },
+  "trace": {
+    "clean": 0.23598014004354664,
+    "blur": 0.07663632745727358
+  },
+  "frobenius_diff": 0.031033737973488913,
+  "relative_frobenius": 0.9156835791728826,
+  "max_abs_diff": 0.003999374366113362
+}

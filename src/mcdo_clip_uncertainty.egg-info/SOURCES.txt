@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/mcdo_clip/__init__.py
+src/mcdo_clip/data.py
+src/mcdo_clip/metrics.py
+src/mcdo_clip/models.py
+src/mcdo_clip/sampling.py
+src/mcdo_clip_uncertainty.egg-info/PKG-INFO
+src/mcdo_clip_uncertainty.egg-info/SOURCES.txt
+src/mcdo_clip_uncertainty.egg-info/dependency_links.txt
+src/mcdo_clip_uncertainty.egg-info/requires.txt
+src/mcdo_clip_uncertainty.egg-info/top_level.txt

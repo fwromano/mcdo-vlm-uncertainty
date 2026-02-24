@@ -1,0 +1,22 @@
+[project]
+name = "mcdo-clip-uncertainty"
+version = "0.0.1"
+description = "MC Dropout uncertainty experiments for CLIP"
+authors = [{name = "MC Dropout Team", email = "mcdo@example.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1.2,<2.2",
+    "torchvision>=0.16.2,<0.17",
+    "open_clip_torch>=2.24.0,<2.25",
+    "Pillow>=10.2.0,<10.3",
+    "numpy>=1.26.4,<1.27",
+    "tqdm>=4.66.2,<4.67",
+    "scipy>=1.11.4,<1.12",
+    "networkx>=3.2.1,<3.3",
+    "transformers>=4.51.0,<4.52",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
