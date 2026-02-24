@@ -1,0 +1,22 @@
+{
+  "experiment": "exp5_subset_ambiguity",
+  "models": [
+    "clip_b32"
+  ],
+  "num_images": 2000,
+  "templates": [
+    "a photo of a {}",
+    "a {}",
+    "an image of a {}"
+  ],
+  "num_classes": 100,
+  "results": {
+    "clip_b32": {
+      "rho_uncertainty_vs_negative_margin": 0.04715222530573841,
+      "rho_uncertainty_vs_entropy": 0.03958977989744497,
+      "rho_uncertainty_vs_prompt_sensitivity": 0.08562162490540622,
+      "auroc_low_margin": 0.5042083333333334,
+      "auroc_high_entropy": 0.47224166666666667
+    }
+  }
+}

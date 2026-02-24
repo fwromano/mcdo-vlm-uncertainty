@@ -1,0 +1,27 @@
+{
+  "experiment": "exp5_subset_ambiguity",
+  "model": "clip_b32",
+  "num_images": 2000,
+  "dropout": 0.01,
+  "passes": 32,
+  "trials": 1,
+  "injected_linear_dropout_wrappers": 36,
+  "num_classes": 100,
+  "templates": [
+    "a photo of a {}",
+    "a {}",
+    "an image of a {}"
+  ],
+  "quantile": 0.1,
+  "thresholds": {
+    "low_margin": 0.1589284896850586,
+    "high_entropy": 3.8686085700988775
+  },
+  "metrics": {
+    "rho_uncertainty_vs_negative_margin": 0.04715222530573841,
+    "rho_uncertainty_vs_entropy": 0.03958977989744497,
+    "rho_uncertainty_vs_prompt_sensitivity": 0.08562162490540622,
+    "auroc_low_margin": 0.5042083333333334,
+    "auroc_high_entropy": 0.47224166666666667
+  }
+}

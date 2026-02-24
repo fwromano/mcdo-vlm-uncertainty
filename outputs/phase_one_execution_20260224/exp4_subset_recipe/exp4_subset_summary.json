@@ -1,0 +1,79 @@
+{
+  "experiment": "exp4_subset_recipe",
+  "models": [
+    "clip_b32",
+    "clip_l14"
+  ],
+  "num_images": 40,
+  "trials": 2,
+  "passes": 8,
+  "dropout": 0.01,
+  "results": {
+    "clip_b32": {
+      "injected_linear_dropout_wrappers": 36,
+      "trace_pre": {
+        "num_trials": 2.0,
+        "num_images": 40.0,
+        "signal": 1.3239407053333707e-05,
+        "noise": 3.657535489764996e-05,
+        "snr": 0.36197617467778465,
+        "icc": -0.16012486138677742,
+        "pairwise_spearman_median": 0.06041275797373359,
+        "pairwise_spearman_iqr": 0.0,
+        "pairwise_spearman_q25": 0.06041275797373359,
+        "pairwise_spearman_q75": 0.06041275797373359,
+        "status": "failed"
+      },
+      "angular_var": {
+        "num_trials": 2.0,
+        "num_images": 40.0,
+        "signal": 5.004342528991401e-05,
+        "noise": 0.0001384433126077056,
+        "snr": 0.36147231922799755,
+        "icc": -0.1608034105532616,
+        "pairwise_spearman_median": -0.1155722326454034,
+        "pairwise_spearman_iqr": 0.0,
+        "pairwise_spearman_q25": -0.1155722326454034,
+        "pairwise_spearman_q75": -0.1155722326454034,
+        "status": "failed"
+      },
+      "trace_mean": 0.010497970506548882,
+      "angular_mean": 0.005517147481441498
+    },
+    "clip_l14": {
+      "injected_linear_dropout_wrappers": 72,
+      "trace_pre": {
+        "num_trials": 2.0,
+        "num_images": 40.0,
+        "signal": 7.800608727848157e-06,
+        "noise": 1.181270636152476e-05,
+        "snr": 0.6603574565482783,
+        "icc": 0.13819659522840794,
+        "pairwise_spearman_median": 0.21519699812382742,
+        "pairwise_spearman_iqr": 0.0,
+        "pairwise_spearman_q25": 0.21519699812382742,
+        "pairwise_spearman_q75": 0.21519699812382742,
+        "status": "failed"
+      },
+      "angular_var": {
+        "num_trials": 2.0,
+        "num_images": 40.0,
+        "signal": 1.563119894854026e-06,
+        "noise": 3.2104417186928913e-06,
+        "snr": 0.4868862392837454,
+        "icc": -0.013288069505569534,
+        "pairwise_spearman_median": -0.004690431519699813,
+        "pairwise_spearman_iqr": 0.0,
+        "pairwise_spearman_q25": -0.004690431519699813,
+        "pairwise_spearman_q75": -0.004690431519699813,
+        "status": "failed"
+      },
+      "trace_mean": 0.013236606493592262,
+      "angular_mean": 0.0015774674247950315
+    }
+  },
+  "comparison": {
+    "trace_mean_delta": 0.0027386359870433807,
+    "angular_mean_delta": -0.003939680056646466
+  }
+}
