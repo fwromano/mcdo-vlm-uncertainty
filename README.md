@@ -119,7 +119,7 @@
 
 ## Quickstart
 ```bash
-cd mcdo-vlm-uncertaintiy
+cd mcdo-vlm-uncertainty
 python -m pip install -e .
 
 # Exp 1: Rank stability
@@ -142,7 +142,7 @@ python scripts/run_error_correlation.py /path/to/imagefolder outputs/error_corr 
 Scripts default to CLIP ViT-B/32 (OpenAI weights). Override with `--model` / `--pretrained`. Add `--no-l2` to disable embedding normalization when you want raw variance.
 
 ## Environment Setup (reproducible)
-- Conda: `conda env create -f environment.yml && conda activate mcdo-vlm-uncertaintiy`
+- Conda: `conda env create -f environment.yml && conda activate mcdo-vlm-uncertainty`
 - Pip/venv: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
 
 Notes:

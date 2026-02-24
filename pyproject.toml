@@ -1,5 +1,5 @@
 [project]
-name = "mcdo-vlm-uncertaintiy"
+name = "mcdo-vlm-uncertainty"
 version = "0.0.1"
 description = "MC Dropout uncertainty experiments for VLMs"
 authors = [{name = "MC Dropout Team", email = "mcdo@example.com"}]

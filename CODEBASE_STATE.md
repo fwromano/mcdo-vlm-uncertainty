@@ -1,7 +1,7 @@
 # Codebase State Report
 
 Date: 2026-02-24
-Repo: `mcdo-vlm-uncertaintiy`
+Repo: `mcdo-vlm-uncertainty`
 
 ## Executive Summary
 
