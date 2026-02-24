@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+# Large local datasets/artifacts (do not track)
+data/processed/
+data/raw/cifar-100-python/
+data/raw/cifar-100-python.tar.gz
+
+# Local run outputs
+outputs/phase1_gpu_20260224/
