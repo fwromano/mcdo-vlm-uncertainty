@@ -25,8 +25,8 @@ You can optionally prefix a style tag using `style<TAB>prompt`.
 Example:
 
 ```text
-generic\tan object
-specific\ta detailed close-up photo of a golden retriever in sunlight
+generic<TAB>an object
+specific<TAB>a detailed close-up photo of a golden retriever in sunlight
 something that might be a dog
 ```
 

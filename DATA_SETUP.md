@@ -110,4 +110,4 @@ CLIP weights download automatically when you first run an experiment. SigLIP2 we
 |-------|:---:|:---:|:---:|:---:|
 | Phase 1 (Exp 0, 0b, 4, 5) | required | - | required (Exp 4) | required |
 | Phase 2 (retrieval) | required | optional | optional | required |
-| Phase 3 (expansion) | - | required | optional | required |
+| Phase 3 (expansion) | required for Exp 6-8 | optional (only if using external retrieval assets) | optional | required |

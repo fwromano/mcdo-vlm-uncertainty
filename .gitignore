@@ -7,6 +7,13 @@ data/raw/cifar-100-python/
 data/raw/cifar-100-python.tar.gz
 data/raw/hf_cache/
 data/raw/imagenet1k_hf/
+data/raw/imagenet_val/
+data/raw/coco_val2017/
 
 # Local run outputs
 outputs/phase1_gpu_20260224/
+outputs/phase_one/
+outputs/phase_two/
+outputs/phase_three/
+outputs/phase_four/
+outputs/full_run/

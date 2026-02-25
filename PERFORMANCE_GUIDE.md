@@ -1,5 +1,13 @@
 # Performance Optimization Guide
 
+## Status Note
+
+This guide includes historical profiling context and optimization ideas.
+Current code already implements several recommendations:
+- precomputed pixel tensors in `run_mc_trial`
+- `torch.inference_mode()` on encode paths
+- progress passthrough from experiment scripts
+
 ## Current Bottleneck Analysis
 
 Profiling the Exp 0 run on RTX 5000 Ada revealed **GPU utilization near 0%** despite the model being loaded in VRAM. The bottleneck is overwhelmingly **data loading and preprocessing**, not compute.
@@ -40,6 +48,8 @@ Steps 1-5 dominate. The GPU forward pass takes microseconds per batch relative t
 **Expected speedup: 10-50x**
 
 Load and preprocess all images once, store as a tensor. Reuse across all MC passes.
+
+Status: Implemented in `phase_one/common.py` (`precompute_pixel_values`, `run_mc_trial`).
 
 ```python
 def precompute_pixel_values(vlm, loader):
@@ -96,6 +106,8 @@ On the M3 Ultra, use `torch.float16` with MPS (bfloat16 support varies by PyTorc
 
 **Expected speedup: ~5-10% (less bookkeeping overhead)**
 
+Status: Implemented in `VisionLanguageModel` encode methods.
+
 ```python
 @torch.inference_mode()
 def encode_images(self, images, normalize=False):
@@ -137,7 +149,7 @@ Fuses operations, reduces kernel launch overhead. First call has compilation cos
 
 ## Optimization 6: Progress output
 
-The `run_mc_trial` already accepts `progress=True` but the experiment scripts don't pass it. Fix:
+`run_mc_trial` accepts `progress=True`, and Phase 1 scripts already pass it. Keep this section as reference for custom scripts.
 
 ```python
 # In exp0_nested_mc.py, line ~94:

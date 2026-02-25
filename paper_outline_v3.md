@@ -173,7 +173,7 @@ Known limitations: MCDO can be overconfident far from training data (Ovadia et a
 
 ### 4.4 Sub-Network Structure and Robustness to Ablation
 
-The Lottery Ticket Hypothesis (Frankle & Carlin, 2018) demonstrated that dense networks contain sparse sub-networks capable of matching full-network performance. This supports the notion that dropout samples over functional sub-networks.
+The Lottery Ticket Hypothesis (Frankle & Carbin, 2018) demonstrated that dense networks contain sparse sub-networks capable of matching full-network performance. This supports the notion that dropout samples over functional sub-networks.
 
 Masked Autoencoders (He et al., 2022) showed that ViTs trained with 75% patch masking learn robust, distributed representations. SigLIP 2 (Tschannen et al., 2025) incorporates 50% masked prediction during training, directly building in the partial-information robustness we hypothesize is necessary for meaningful MCDO.
 
@@ -932,7 +932,7 @@ This is plausible but unproven. Our experiments test it empirically.
 - Bar-Shalom, Y., & Li, X. R. (1995). *Multitarget-Multisensor Tracking: Principles and Techniques*. YBS Publishing.
 
 ### Sub-Network Structure
-- Frankle, J., & Carlin, M. (2018). The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks. *ICLR 2019*.
+- Frankle, J., & Carbin, M. (2018). The Lottery Ticket Hypothesis: Finding Sparse, Trainable Neural Networks. *ICLR 2019*.
 - He, K., et al. (2022). Masked Autoencoders Are Scalable Vision Learners. *CVPR 2022*.
 - Caron, M., et al. (2021). Emerging Properties in Self-Supervised Vision Transformers (DINO). *ICCV 2021*.
 - Oquab, M., et al. (2023). DINOv2: Learning Robust Visual Features without Supervision.
