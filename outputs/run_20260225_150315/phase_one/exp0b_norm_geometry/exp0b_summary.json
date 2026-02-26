@@ -1,0 +1,15 @@
+{
+  "experiment": "exp0b_norm_geometry",
+  "model": "clip_b32",
+  "passes": 64,
+  "trials": 5,
+  "num_images": 500,
+  "trace_pre_per_d_mean": 0.00752490209415555,
+  "trace_post_per_d_mean": 7.256821118062362e-05,
+  "offdiag_pre_mean": 0.9889262557029724,
+  "offdiag_post_mean": 0.9897141337394715,
+  "angular_var_mean": 0.007561260089278221,
+  "corr_trace_pre_angular": 0.7075863823455294,
+  "corr_trace_post_angular": 0.8055446941787766,
+  "corr_trace_pre_post": 0.9432780771123083
+}
