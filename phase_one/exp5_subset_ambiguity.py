@@ -73,134 +73,148 @@ def main() -> None:
     print(f"[Exp5-subset] Using {len(class_names)} class prompts across {len(templates)} templates")
 
     all_summaries: Dict[str, Dict[str, float]] = {}
+    skipped: Dict[str, str] = {}
 
     for model_key in model_keys:
-        print(f"[Exp5-subset] Loading model: {model_key}")
-        vlm = load_model(model_key, device=args.device)
-        injected = vlm.ensure_uniform_dropout(args.dropout)
-        vlm.disable_dropout()
+        try:
+            print(f"[Exp5-subset] Loading model: {model_key}")
+            vlm = load_model(model_key, device=args.device)
+            injected = vlm.ensure_uniform_dropout(args.dropout)
+            vlm.disable_dropout()
 
-        # Deterministic ambiguity metrics.
-        text_features_by_template: List[torch.Tensor] = []
-        for template in templates:
-            prompts = [template.format(name) for name in class_names]
-            text_features = vlm.encode_texts(prompts, normalize=True)
-            text_features_by_template.append(text_features)
+            # Deterministic ambiguity metrics.
+            text_features_by_template: List[torch.Tensor] = []
+            for template in templates:
+                prompts = [template.format(name) for name in class_names]
+                text_features = vlm.encode_texts(prompts, normalize=True)
+                text_features_by_template.append(text_features)
 
-        margins: List[np.ndarray] = []
-        entropies: List[np.ndarray] = []
-        prompt_var_parts: List[np.ndarray] = []
+            margins: List[np.ndarray] = []
+            entropies: List[np.ndarray] = []
+            prompt_var_parts: List[np.ndarray] = []
 
-        with torch.no_grad():
-            for images, _paths, _ in loader:
-                image_features = vlm.encode_images(images, normalize=True)
+            with torch.no_grad():
+                for images, _paths, _ in loader:
+                    image_features = vlm.encode_images(images, normalize=True)
 
-                logits_main = vlm.similarity_logits(image_features, text_features_by_template[0])
-                top2 = torch.topk(logits_main, k=2, dim=-1).values
-                margin = (top2[:, 0] - top2[:, 1]).cpu().numpy()
+                    logits_main = vlm.similarity_logits(image_features, text_features_by_template[0])
+                    top2 = torch.topk(logits_main, k=2, dim=-1).values
+                    margin = (top2[:, 0] - top2[:, 1]).cpu().numpy()
 
-                probs_main = F.softmax(logits_main, dim=-1)
-                entropy = (-(probs_main * torch.log(probs_main.clamp_min(1e-12))).sum(dim=-1)).cpu().numpy()
+                    probs_main = F.softmax(logits_main, dim=-1)
+                    entropy = (-(probs_main * torch.log(probs_main.clamp_min(1e-12))).sum(dim=-1)).cpu().numpy()
 
-                max_probs = []
-                for text_features in text_features_by_template:
-                    logits = vlm.similarity_logits(image_features, text_features)
-                    probs = F.softmax(logits, dim=-1)
-                    max_probs.append(probs.max(dim=-1).values.cpu().numpy())
-                max_probs_arr = np.stack(max_probs, axis=0)
-                if max_probs_arr.shape[0] > 1:
-                    prompt_var = np.var(max_probs_arr, axis=0, ddof=1)
-                else:
-                    prompt_var = np.zeros(max_probs_arr.shape[1], dtype=np.float64)
+                    max_probs = []
+                    for text_features in text_features_by_template:
+                        logits = vlm.similarity_logits(image_features, text_features)
+                        probs = F.softmax(logits, dim=-1)
+                        max_probs.append(probs.max(dim=-1).values.cpu().numpy())
+                    max_probs_arr = np.stack(max_probs, axis=0)
+                    if max_probs_arr.shape[0] > 1:
+                        prompt_var = np.var(max_probs_arr, axis=0, ddof=1)
+                    else:
+                        prompt_var = np.zeros(max_probs_arr.shape[1], dtype=np.float64)
 
-                margins.append(margin)
-                entropies.append(entropy)
-                prompt_var_parts.append(prompt_var)
+                    margins.append(margin)
+                    entropies.append(entropy)
+                    prompt_var_parts.append(prompt_var)
 
-        margin_arr = np.concatenate(margins, axis=0)
-        entropy_arr = np.concatenate(entropies, axis=0)
-        prompt_var_arr = np.concatenate(prompt_var_parts, axis=0)
+            margin_arr = np.concatenate(margins, axis=0)
+            entropy_arr = np.concatenate(entropies, axis=0)
+            prompt_var_arr = np.concatenate(prompt_var_parts, axis=0)
 
-        # Uncertainty from MCDO trace/d on pre-norm features.
-        uncertainty_trials = []
-        for trial_idx in range(args.trials):
-            seed = args.seed + trial_idx
-            set_all_seeds(seed)
-            vlm.ensure_uniform_dropout(args.dropout)
-            trial = run_mc_trial(vlm=vlm, loader=loader, passes=args.passes, collect_pass_features=False)
-            uncertainty_trials.append(trial["trace_pre"].numpy())
+            # Uncertainty from MCDO trace/d on pre-norm features.
+            uncertainty_trials = []
+            for trial_idx in range(args.trials):
+                seed = args.seed + trial_idx
+                set_all_seeds(seed)
+                vlm.ensure_uniform_dropout(args.dropout)
+                trial = run_mc_trial(vlm=vlm, loader=loader, passes=args.passes, collect_pass_features=False)
+                uncertainty_trials.append(trial["trace_pre"].numpy())
 
-            completed = trial_idx + 1
-            if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
-                unc_partial = np.stack(uncertainty_trials, axis=0)
-                np.savez_compressed(
-                    out_dir / f"exp5_subset_{model_key}_partial.npz",
-                    paths=np.asarray(sampled_paths),
-                    uncertainty_trials=unc_partial,
-                    margin=margin_arr,
-                    entropy=entropy_arr,
-                    prompt_sensitivity=prompt_var_arr,
-                    completed_trials=np.asarray([completed], dtype=np.int64),
-                    total_trials=np.asarray([args.trials], dtype=np.int64),
-                )
-                save_json(
-                    {
-                        "experiment": "exp5_subset_ambiguity",
-                        "model": model_key,
-                        "completed_trials": completed,
-                        "total_trials": args.trials,
-                    },
-                    str(out_dir / f"exp5_subset_{model_key}_progress.json"),
-                )
+                completed = trial_idx + 1
+                if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
+                    unc_partial = np.stack(uncertainty_trials, axis=0)
+                    np.savez_compressed(
+                        out_dir / f"exp5_subset_{model_key}_partial.npz",
+                        paths=np.asarray(sampled_paths),
+                        uncertainty_trials=unc_partial,
+                        margin=margin_arr,
+                        entropy=entropy_arr,
+                        prompt_sensitivity=prompt_var_arr,
+                        completed_trials=np.asarray([completed], dtype=np.int64),
+                        total_trials=np.asarray([args.trials], dtype=np.int64),
+                    )
+                    save_json(
+                        {
+                            "experiment": "exp5_subset_ambiguity",
+                            "model": model_key,
+                            "completed_trials": completed,
+                            "total_trials": args.trials,
+                        },
+                        str(out_dir / f"exp5_subset_{model_key}_progress.json"),
+                    )
 
-        unc_trials_arr = np.stack(uncertainty_trials, axis=0)
-        uncertainty = unc_trials_arr.mean(axis=0)
+            unc_trials_arr = np.stack(uncertainty_trials, axis=0)
+            uncertainty = unc_trials_arr.mean(axis=0)
 
-        low_margin_thr = np.quantile(margin_arr, args.quantile)
-        high_entropy_thr = np.quantile(entropy_arr, 1.0 - args.quantile)
-        low_margin = (margin_arr <= low_margin_thr).astype(np.int64)
-        high_entropy = (entropy_arr >= high_entropy_thr).astype(np.int64)
+            low_margin_thr = np.quantile(margin_arr, args.quantile)
+            high_entropy_thr = np.quantile(entropy_arr, 1.0 - args.quantile)
+            low_margin = (margin_arr <= low_margin_thr).astype(np.int64)
+            high_entropy = (entropy_arr >= high_entropy_thr).astype(np.int64)
 
-        metrics = {
-            "rho_uncertainty_vs_negative_margin": spearman_safe(uncertainty, -margin_arr),
-            "rho_uncertainty_vs_entropy": spearman_safe(uncertainty, entropy_arr),
-            "rho_uncertainty_vs_prompt_sensitivity": spearman_safe(uncertainty, prompt_var_arr),
-            "auroc_low_margin": auroc_from_scores(uncertainty, low_margin),
-            "auroc_high_entropy": auroc_from_scores(uncertainty, high_entropy),
-        }
+            metrics = {
+                "rho_uncertainty_vs_negative_margin": spearman_safe(uncertainty, -margin_arr),
+                "rho_uncertainty_vs_entropy": spearman_safe(uncertainty, entropy_arr),
+                "rho_uncertainty_vs_prompt_sensitivity": spearman_safe(uncertainty, prompt_var_arr),
+                "auroc_low_margin": auroc_from_scores(uncertainty, low_margin),
+                "auroc_high_entropy": auroc_from_scores(uncertainty, high_entropy),
+            }
 
-        np.savez_compressed(
-            out_dir / f"exp5_subset_{model_key}.npz",
-            paths=np.asarray(sampled_paths),
-            uncertainty_trials=unc_trials_arr,
-            uncertainty=uncertainty,
-            margin=margin_arr,
-            entropy=entropy_arr,
-            prompt_sensitivity=prompt_var_arr,
-            low_margin=low_margin,
-            high_entropy=high_entropy,
-        )
+            np.savez_compressed(
+                out_dir / f"exp5_subset_{model_key}.npz",
+                paths=np.asarray(sampled_paths),
+                uncertainty_trials=unc_trials_arr,
+                uncertainty=uncertainty,
+                margin=margin_arr,
+                entropy=entropy_arr,
+                prompt_sensitivity=prompt_var_arr,
+                low_margin=low_margin,
+                high_entropy=high_entropy,
+            )
 
-        summary = {
-            "experiment": "exp5_subset_ambiguity",
-            "model": model_key,
-            "num_images": len(sampled_paths),
-            "dropout": args.dropout,
-            "passes": args.passes,
-            "trials": args.trials,
-            "injected_linear_dropout_wrappers": injected,
-            "num_classes": len(class_names),
-            "templates": templates,
-            "quantile": args.quantile,
-            "thresholds": {
-                "low_margin": float(low_margin_thr),
-                "high_entropy": float(high_entropy_thr),
-            },
-            "metrics": metrics,
-        }
+            summary = {
+                "experiment": "exp5_subset_ambiguity",
+                "model": model_key,
+                "num_images": len(sampled_paths),
+                "dropout": args.dropout,
+                "passes": args.passes,
+                "trials": args.trials,
+                "injected_linear_dropout_wrappers": injected,
+                "num_classes": len(class_names),
+                "templates": templates,
+                "quantile": args.quantile,
+                "thresholds": {
+                    "low_margin": float(low_margin_thr),
+                    "high_entropy": float(high_entropy_thr),
+                },
+                "metrics": metrics,
+            }
 
-        save_json(summary, str(out_dir / f"exp5_subset_{model_key}_summary.json"))
-        all_summaries[model_key] = metrics
+            save_json(summary, str(out_dir / f"exp5_subset_{model_key}_summary.json"))
+            all_summaries[model_key] = metrics
+        except Exception as exc:  # noqa: BLE001
+            skipped[model_key] = str(exc)
+            save_json(
+                {
+                    "experiment": "exp5_subset_ambiguity",
+                    "model": model_key,
+                    "status": "skipped",
+                    "reason": str(exc),
+                },
+                str(out_dir / f"exp5_subset_{model_key}_error.json"),
+            )
+            print(f"[Exp5-subset] Skipping {model_key}: {exc}")
 
     save_json(
         {
@@ -210,9 +224,12 @@ def main() -> None:
             "templates": templates,
             "num_classes": len(class_names),
             "results": all_summaries,
+            "skipped": skipped,
         },
         str(out_dir / "exp5_subset_overall_summary.json"),
     )
+    if not all_summaries:
+        raise RuntimeError(f"Exp5 subset failed for all models: {skipped}")
 
     print(f"[Exp5-subset] Complete. Results: {out_dir}")
 

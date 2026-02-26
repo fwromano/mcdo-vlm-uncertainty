@@ -17,3 +17,9 @@ outputs/phase_two/
 outputs/phase_three/
 outputs/phase_four/
 outputs/full_run/
+outputs/fast_*/
+outputs/run_*/
+outputs/smoke_*/
+
+# Build artifacts
+src/*.egg-info/

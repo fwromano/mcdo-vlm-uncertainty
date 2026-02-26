@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import random
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -199,6 +201,16 @@ def set_dropout_mode(root: nn.Module, enabled: bool, p: Optional[float] = None) 
             module.train(enabled)
 
 
+def _as_feature_tensor(feats: Any, source: str) -> torch.Tensor:
+    if isinstance(feats, torch.Tensor):
+        return feats
+    if hasattr(feats, "pooler_output") and getattr(feats, "pooler_output") is not None:
+        return feats.pooler_output
+    if isinstance(feats, (tuple, list)) and feats and isinstance(feats[0], torch.Tensor):
+        return feats[0]
+    raise TypeError(f"{source} returned unsupported feature type: {type(feats)}")
+
+
 class VisionLanguageModel:
     def __init__(
         self,
@@ -259,7 +271,11 @@ class VisionLanguageModel:
             feats = self.model.encode_image(pixel_values, normalize=normalize)
             return feats.float()
 
-        feats = self.model.get_image_features(pixel_values=pixel_values).float()
+        feats = _as_feature_tensor(
+            self.model.get_image_features(pixel_values=pixel_values),
+            source=f"{self.spec.hf_model_id}.get_image_features",
+        )
+        feats = feats.float()
         if normalize:
             feats = F.normalize(feats, dim=-1)
         return feats
@@ -276,9 +292,21 @@ class VisionLanguageModel:
             feats = self.model.encode_text(tokens, normalize=normalize)
             return feats.float()
 
-        encoded = self.text_processor(text=list(texts), padding=True, return_tensors="pt")
+        if self.text_processor is None:
+            raise RuntimeError(
+                f"Text processor is unavailable for `{self.spec.key}`. "
+                "Install `protobuf` and `sentencepiece` to enable text encoding."
+            )
+        try:
+            encoded = self.text_processor(text=list(texts), padding=True, return_tensors="pt")
+        except TypeError:
+            encoded = self.text_processor(list(texts), padding=True, truncation=True, return_tensors="pt")
         encoded = {k: v.to(self.device) for k, v in encoded.items()}
-        feats = self.model.get_text_features(**encoded).float()
+        feats = _as_feature_tensor(
+            self.model.get_text_features(**encoded),
+            source=f"{self.spec.hf_model_id}.get_text_features",
+        )
+        feats = feats.float()
         if normalize:
             feats = F.normalize(feats, dim=-1)
         return feats
@@ -330,17 +358,61 @@ def load_model(spec_key: str, device: str) -> VisionLanguageModel:
             device=device,
         )
 
-    from transformers import AutoModel, AutoProcessor
+    from transformers import AutoModel
 
-    processor = AutoProcessor.from_pretrained(spec.hf_model_id)
-    model = AutoModel.from_pretrained(spec.hf_model_id)
+    text_processor: Any = None
+    processor_error: Optional[Exception] = None
+    hf_kwargs: Dict[str, Any] = {}
+    if os.environ.get("MCDO_HF_LOCAL_ONLY", "").strip().lower() in {"1", "true", "yes"}:
+        hf_kwargs["local_files_only"] = True
+
+    # AutoProcessor can fail when tokenizer dependencies are missing.
+    # Fall back to loading image/tokenizer separately so image-only experiments
+    # (Exp 0/0b/4) still run.
+    try:
+        from transformers import AutoProcessor
+
+        processor = AutoProcessor.from_pretrained(
+            spec.hf_model_id,
+            use_fast=False,
+            **hf_kwargs,
+        )
+        image_processor = processor
+        text_processor = processor
+    except Exception as exc:  # noqa: BLE001
+        processor_error = exc
+        from transformers import AutoImageProcessor, AutoTokenizer
+
+        image_processor = AutoImageProcessor.from_pretrained(
+            spec.hf_model_id,
+            use_fast=False,
+            **hf_kwargs,
+        )
+        try:
+            text_processor = AutoTokenizer.from_pretrained(
+                spec.hf_model_id,
+                use_fast=False,
+                **hf_kwargs,
+            )
+        except Exception as tok_exc:  # noqa: BLE001
+            warnings.warn(
+                "Tokenizer load failed for "
+                f"`{spec.hf_model_id}` ({tok_exc}). Text-dependent experiments "
+                "require `protobuf` and `sentencepiece` "
+                "(install: `pip install protobuf sentencepiece`). "
+                f"Original AutoProcessor error: {processor_error}",
+                RuntimeWarning,
+            )
+            text_processor = None
+
+    model = AutoModel.from_pretrained(spec.hf_model_id, **hf_kwargs)
     model.to(device)
     model.eval()
     return VisionLanguageModel(
         spec=spec,
         model=model,
-        image_processor=processor,
-        text_processor=processor,
+        image_processor=image_processor,
+        text_processor=text_processor,
         device=device,
     )
 

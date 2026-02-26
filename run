@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./run phase one [runner args...]
+  ./run phase two [runner args...]
+  ./run phase three [runner args...]
+  ./run phase four [runner args...]
+  ./run phase all [runner args...]
+
+Notes:
+  - Defaults data dir to data/raw/imagenet_val
+  - Defaults output dir to outputs/run_YYYYmmdd_HHMMSS
+  - Auto-detects device: cuda > mps > cpu (override with RUN_DEVICE)
+  - On CPU, Phase 1 uses a quick profile by default (override with RUN_PHASE1_PROFILE=full)
+EOF
+}
+
+activate_mcdo_if_available() {
+  if ! command -v conda >/dev/null 2>&1; then
+    return 0
+  fi
+  eval "$(conda shell.bash hook 2>/dev/null)" || return 0
+  if [[ "${CONDA_DEFAULT_ENV:-}" != "mcdo" ]]; then
+    conda activate mcdo >/dev/null 2>&1 || true
+  fi
+}
+
+detect_device() {
+  if [[ -n "${RUN_DEVICE:-}" ]]; then
+    echo "$RUN_DEVICE"
+    return 0
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    echo "cuda"
+    return 0
+  fi
+
+  # Probe MPS in the active Python environment (Apple Silicon).
+  if command -v python >/dev/null 2>&1; then
+    local mps_status
+    mps_status="$(python - <<'PY'
+import torch
+print("1" if torch.backends.mps.is_available() else "0")
+PY
+)" || mps_status="0"
+    if [[ "$mps_status" == "1" ]]; then
+      echo "mps"
+      return 0
+    fi
+  else
+    echo "cpu"
+    return 0
+  fi
+  echo "cpu"
+}
+
+has_option() {
+  local needle="$1"
+  shift
+  for arg in "$@"; do
+    if [[ "$arg" == "$needle" || "$arg" == "$needle="* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [[ $# -lt 2 ]]; then
+  usage
+  exit 1
+fi
+
+if [[ "$1" != "phase" ]]; then
+  usage
+  exit 1
+fi
+
+PHASE_RAW="$2"
+shift 2
+
+case "$PHASE_RAW" in
+  one|1) PHASE_KEY="one" ;;
+  two|2) PHASE_KEY="two" ;;
+  three|3) PHASE_KEY="three" ;;
+  four|4) PHASE_KEY="four" ;;
+  all) PHASE_KEY="all" ;;
+  *)
+    echo "Unknown phase: $PHASE_RAW"
+    usage
+    exit 1
+    ;;
+esac
+
+activate_mcdo_if_available
+
+DATA_DIR="${RUN_DATA_DIR:-$ROOT_DIR/data/raw/imagenet_val}"
+OUT_DIR="${RUN_OUT_DIR:-$ROOT_DIR/outputs/run_$(date +%Y%m%d_%H%M%S)}"
+DEVICE="$(detect_device)"
+
+if [[ -z "${RUN_DEVICE:-}" && "$DEVICE" == "cpu" ]]; then
+  echo "Warning: GPU backend unavailable in current env; falling back to CPU."
+  echo "Set RUN_DEVICE=mps (or cuda) to override if your backend is available."
+fi
+
+if [[ ! -d "$DATA_DIR" ]]; then
+  echo "Data dir not found: $DATA_DIR"
+  echo "Set RUN_DATA_DIR=/path/to/data and retry."
+  exit 1
+fi
+
+case "$PHASE_KEY" in
+  one)
+    phase_one_args=("$@")
+    has_no_half=0
+    has_exp5_models=0
+    for arg in ${phase_one_args[@]+"${phase_one_args[@]}"}; do
+      if [[ "$arg" == "--no-half" ]]; then
+        has_no_half=1
+      fi
+      if [[ "$arg" == "--exp5-models" || "$arg" == --exp5-models=* ]]; then
+        has_exp5_models=1
+      fi
+    done
+    phase1_profile="${RUN_PHASE1_PROFILE:-}"
+    if [[ -z "$phase1_profile" ]]; then
+      if [[ "$DEVICE" == "cpu" ]]; then
+        phase1_profile="quick"
+      else
+        phase1_profile="full"
+      fi
+    fi
+
+    if [[ "$DEVICE" == "cpu" && $has_no_half -eq 0 ]]; then
+      phase_one_args+=("--no-half")
+    fi
+    if [[ $has_exp5_models -eq 0 ]]; then
+      phase_one_args+=("--exp5-models" "clip_b32")
+    fi
+    if [[ "$DEVICE" == "cpu" && "$phase1_profile" == "quick" ]]; then
+      echo "Applying Phase 1 CPU quick profile (set RUN_PHASE1_PROFILE=full for full run)."
+      if ! has_option "--exp0-models" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0-models" "clip_b32,siglip2_b16")
+      fi
+      if ! has_option "--exp0-num-images" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0-num-images" "256")
+      fi
+      if ! has_option "--exp0-trials" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0-trials" "3")
+      fi
+      if ! has_option "--exp0-passes" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0-passes" "4,16")
+      fi
+      if ! has_option "--exp0b-num-images" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0b-num-images" "256")
+      fi
+      if ! has_option "--exp0b-trials" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0b-trials" "2")
+      fi
+      if ! has_option "--exp0b-passes" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp0b-passes" "16")
+      fi
+      if ! has_option "--exp4-num-images" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp4-num-images" "256")
+      fi
+      if ! has_option "--exp4-models" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp4-models" "clip_b32")
+      fi
+      if ! has_option "--exp4-trials" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp4-trials" "3")
+      fi
+      if ! has_option "--exp4-passes" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp4-passes" "16")
+      fi
+      if ! has_option "--exp5-num-images" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp5-num-images" "1000")
+      fi
+      if ! has_option "--exp5-trials" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp5-trials" "1")
+      fi
+      if ! has_option "--exp5-passes" ${phase_one_args[@]+"${phase_one_args[@]}"}; then
+        phase_one_args+=("--exp5-passes" "16")
+      fi
+    fi
+    if [[ -f "$ROOT_DIR/phase_one/run_phase1_fast.py" ]]; then
+      echo "Running Phase 1 (fast runner) on $DEVICE"
+      exec python -m phase_one.run_phase1_fast "$DATA_DIR" "$OUT_DIR/phase_one" --device "$DEVICE" ${phase_one_args[@]+"${phase_one_args[@]}"}
+    else
+      echo "Running Phase 1 (standard runner) on $DEVICE"
+      exec python -m phase_one.run_phase1 "$DATA_DIR" "$OUT_DIR/phase_one" --device "$DEVICE" ${phase_one_args[@]+"${phase_one_args[@]}"}
+    fi
+    ;;
+  two)
+    echo "Running Phase 2 on $DEVICE"
+    exec python -m phase_two.run_phase2 "$DATA_DIR" "$OUT_DIR/phase_two" --device "$DEVICE" "$@"
+    ;;
+  three)
+    echo "Running Phase 3 on $DEVICE"
+    exec python -m phase_three.run_phase3 "$DATA_DIR" "$OUT_DIR/phase_three" --device "$DEVICE" "$@"
+    ;;
+  four)
+    echo "Running Phase 4 on $DEVICE"
+    exec python -m phase_four.run_phase4 "$DATA_DIR" "$OUT_DIR/phase_four" --device "$DEVICE" "$@"
+    ;;
+  all)
+    echo "Running all phases on $DEVICE"
+    exec python run_all_phases.py "$DATA_DIR" "$OUT_DIR" --device "$DEVICE" "$@"
+    ;;
+esac
