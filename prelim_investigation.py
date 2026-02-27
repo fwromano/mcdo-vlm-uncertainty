@@ -19,6 +19,7 @@ from scipy.stats import spearmanr
 from phase_one.common import (
     auroc_from_scores, build_loader, discover_class_names, list_images,
     load_model, run_mc_trial, sample_paths, set_all_seeds, spearman_safe,
+    detect_best_device,
 )
 
 DATA_DIR = "data/raw/imagenet_val"
@@ -35,20 +36,12 @@ ANGLE3_NUM_IMAGES = 1000
 OUT_PATH = "outputs/prelim_investigation.json"
 
 
-def detect_default_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run preliminary MC-dropout investigation")
     parser.add_argument("--data-dir", type=str, default=DATA_DIR)
     parser.add_argument("--class-map", type=str, default=CLASS_MAP)
     parser.add_argument("--out", type=str, default=OUT_PATH)
-    parser.add_argument("--device", type=str, default=detect_default_device())
+    parser.add_argument("--device", type=str, default=detect_best_device())
     parser.add_argument("--dropout", type=float, default=DROPOUT)
     parser.add_argument("--passes", type=int, default=PASSES)
     parser.add_argument("--seed", type=int, default=SEED)

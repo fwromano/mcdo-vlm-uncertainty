@@ -21,6 +21,7 @@ from scipy.stats import wilcoxon
 from phase_one.common import (
     build_loader, list_images, load_model, run_mc_trial,
     sample_paths, set_all_seeds, ImagePathDataset, pil_collate,
+    detect_best_device,
 )
 from torch.utils.data import DataLoader
 
@@ -35,19 +36,11 @@ BATCH_SIZE = 32
 OUT_PATH = "outputs/prelim_ablation.json"
 
 
-def detect_default_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run image-ablation uncertainty test")
     parser.add_argument("--data-dir", type=str, default=DATA_DIR)
     parser.add_argument("--out", type=str, default=OUT_PATH)
-    parser.add_argument("--device", type=str, default=detect_default_device())
+    parser.add_argument("--device", type=str, default=detect_best_device())
     parser.add_argument("--dropout", type=float, default=DROPOUT)
     parser.add_argument("--passes", type=int, default=PASSES)
     parser.add_argument("--seed", type=int, default=SEED)
