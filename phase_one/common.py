@@ -288,7 +288,18 @@ class VisionLanguageModel:
     @torch.inference_mode()
     def encode_texts(self, texts: Sequence[str], normalize: bool = True) -> torch.Tensor:
         if self.spec.backend == "open_clip":
-            tokens = self.text_processor(list(texts)).to(self.device)
+            try:
+                tokens = self.text_processor(list(texts)).to(self.device)
+            except AttributeError:
+                # SigLIP2 uses a GemmaTokenizer that lacks batch_encode_plus;
+                # fall back to the inner HF tokenizer directly.
+                inner = getattr(self.text_processor, "tokenizer", self.text_processor)
+                ctx_len = getattr(self.text_processor, "context_length", 64)
+                encoded = inner(
+                    list(texts), return_tensors="pt",
+                    padding="max_length", max_length=ctx_len, truncation=True,
+                )
+                tokens = encoded["input_ids"].to(self.device)
             feats = self.model.encode_text(tokens, normalize=normalize)
             return feats.float()
 

@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
         "--only",
         type=str,
         default="exp1,exp3,exp5,exp2,exp4",
-        help="Comma-separated subset/order of experiments: exp1,exp2,exp3,exp4,exp5",
+        help="Comma-separated subset/order of experiments: exp1,exp2,exp3,exp4,exp5,exp6",
     )
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--batch-size", type=int, default=32)
@@ -65,6 +65,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--exp5-retrieval-json", type=str, default="")
     parser.add_argument("--exp5-num-retrieval", type=int, default=5000)
 
+    parser.add_argument("--exp6-models", type=str, default="siglip2_b16,siglip2_so400m")
+    parser.add_argument("--exp6-num-images", type=int, default=500)
+    parser.add_argument("--exp6-passes", type=str, default="4,8,16,32,64")
+    parser.add_argument("--exp6-trials", type=int, default=3)
+
     return parser.parse_args()
 
 
@@ -79,7 +84,7 @@ def main() -> None:
     out_root.mkdir(parents=True, exist_ok=True)
 
     selected = [x.strip() for x in args.only.split(",") if x.strip()]
-    known = {"exp1", "exp2", "exp3", "exp4", "exp5"}
+    known = {"exp1", "exp2", "exp3", "exp4", "exp5", "exp6"}
     invalid = [x for x in selected if x not in known]
     if invalid:
         raise ValueError(f"Unknown experiment(s) in --only: {invalid}. Known: {sorted(known)}")
@@ -95,6 +100,7 @@ def main() -> None:
     manifest_exp3 = make_manifest(args.exp3_num_images, args.seed, "manifest_exp3.json")
     manifest_exp4 = make_manifest(args.exp4_num_images, args.seed, "manifest_exp4.json")
     manifest_exp5 = make_manifest(args.exp5_num_images, args.seed + 1, "manifest_exp5.json")
+    manifest_exp6 = make_manifest(args.exp6_num_images, args.seed, "manifest_exp6.json")
 
     for exp_name in selected:
         if exp_name == "exp1":
@@ -270,6 +276,39 @@ def main() -> None:
             if args.exp5_retrieval_json:
                 cmd.extend(["--retrieval-json", args.exp5_retrieval_json])
             run_cmd(cmd)
+            continue
+
+        if exp_name == "exp6":
+            run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "phase_two.exp6_mean_convergence",
+                    args.data_dir,
+                    str(out_root / "exp6_mean_convergence"),
+                    "--manifest",
+                    str(manifest_exp6),
+                    "--models",
+                    args.exp6_models,
+                    "--passes",
+                    args.exp6_passes,
+                    "--trials",
+                    str(args.exp6_trials),
+                    "--dropout",
+                    str(args.dropout),
+                    "--batch-size",
+                    str(args.batch_size),
+                    "--num-workers",
+                    str(args.num_workers),
+                    "--device",
+                    args.device,
+                    "--seed",
+                    str(args.seed),
+                    "--save-every",
+                    str(args.save_every),
+                ]
+            )
+            continue
 
     print(f"Phase 2 run completed. Outputs under: {out_root}")
 
