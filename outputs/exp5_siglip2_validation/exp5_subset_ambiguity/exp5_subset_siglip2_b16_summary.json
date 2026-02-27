@@ -1,0 +1,21 @@
+{
+  "experiment": "exp5_subset_ambiguity",
+  "model": "siglip2_b16",
+  "num_images": 5000,
+  "dropout": 0.01,
+  "passes": 64,
+  "trials": 1,
+  "num_classes": 1000,
+  "templates": [
+    "a photo of a {}",
+    "a {}",
+    "an image of a {}"
+  ],
+  "metrics": {
+    "rho_uncertainty_vs_negative_margin": -0.006012919558018984,
+    "rho_uncertainty_vs_entropy": -0.029335233297832358,
+    "rho_uncertainty_vs_prompt_sensitivity": 0.023541956862808293,
+    "auroc_low_margin": 0.49956188977901056,
+    "auroc_high_entropy": 0.49568222222222225
+  }
+}

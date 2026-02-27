@@ -1,0 +1,125 @@
+{
+  "angle1_alt_metrics": {
+    "clip_b32": {
+      "accuracy": 0.875,
+      "trace_pre": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "trace_post": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "norm_var": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.3161680045562237,
+        "rho_neg_margin": 0.05498573992282151,
+        "auroc_error": 0.5714285714285714
+      }
+    },
+    "siglip2_b16": {
+      "accuracy": 0.0,
+      "trace_pre": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "trace_post": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "norm_var": {
+        "rho_entropy": 0.0,
+        "rho_neg_margin": 0.0,
+        "auroc_error": NaN
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": -0.3273268353539886,
+        "rho_neg_margin": -0.545544725589981,
+        "auroc_error": NaN
+      }
+    }
+  },
+  "angle2_clip_b32_n2000": {
+    "accuracy": 0.875,
+    "N": 8,
+    "trace_pre": {
+      "rho_entropy": 0.0,
+      "rho_neg_margin": 0.0,
+      "auroc_error": NaN
+    },
+    "trace_post": {
+      "rho_entropy": 0.0,
+      "rho_neg_margin": 0.0,
+      "auroc_error": NaN
+    },
+    "max_dim_var": {
+      "rho_entropy": 0.0,
+      "rho_neg_margin": 0.0,
+      "auroc_error": NaN
+    },
+    "top_eigenvalue": {
+      "rho_entropy": 0.0,
+      "rho_neg_margin": 0.0,
+      "auroc_error": NaN
+    },
+    "norm_var": {
+      "rho_entropy": 0.0,
+      "rho_neg_margin": 0.0,
+      "auroc_error": NaN
+    },
+    "mean_cosine_dev": {
+      "rho_entropy": 0.3161680045562237,
+      "rho_neg_margin": 0.05498573992282151,
+      "auroc_error": 0.5714285714285714
+    }
+  },
+  "angle3_siglip2_correlates": {
+    "accuracy": 0.0,
+    "N": 8,
+    "rho_vs_feat_norm": 0.0,
+    "rho_vs_centroid_distance": 0.0,
+    "rho_vs_max_logit": 0.0,
+    "rho_vs_classification_entropy": 0.0,
+    "rho_vs_negative_margin": 0.0,
+    "rho_vs_correctness": 0.0,
+    "q1_accuracy": 0.0,
+    "q1_mean_unc": 0.0,
+    "q2_accuracy": 0.0,
+    "q2_mean_unc": 0.0,
+    "q3_accuracy": 0.0,
+    "q3_mean_unc": 0.0,
+    "q4_accuracy": 0.0,
+    "q4_mean_unc": 0.0,
+    "q5_accuracy": 0.0,
+    "q5_mean_unc": 0.0
+  },
+  "elapsed_seconds": 57.56047534942627
+}
