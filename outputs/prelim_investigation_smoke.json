@@ -1,125 +1,128 @@
 {
   "angle1_alt_metrics": {
     "clip_b32": {
-      "accuracy": 0.875,
+      "accuracy": 0.555,
       "trace_pre": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.27308932723318086,
+        "rho_neg_margin": 0.11975999399985002,
+        "auroc_error": 0.5991497115092621
       },
       "trace_post": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.20853221330533264,
+        "rho_neg_margin": 0.07657691442286058,
+        "auroc_error": 0.5771839254985323
       },
       "max_dim_var": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.06006450161254032,
+        "rho_neg_margin": 0.00222305557638941,
+        "auroc_error": 0.5348719506022876
       },
       "top_eigenvalue": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.1278301957548939,
+        "rho_neg_margin": 0.028586214655366385,
+        "auroc_error": 0.5574450855349732
       },
       "norm_var": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": -0.05676441911047776,
+        "rho_neg_margin": -0.06177154428860722,
+        "auroc_error": 0.5442858588926005
       },
       "mean_cosine_dev": {
-        "rho_entropy": 0.3161680045562237,
-        "rho_neg_margin": 0.05498573992282151,
-        "auroc_error": 0.5714285714285714
+        "rho_entropy": 0.20853221330533264,
+        "rho_neg_margin": 0.07657691442286058,
+        "auroc_error": 0.5771839254985323
       }
     },
     "siglip2_b16": {
-      "accuracy": 0.0,
+      "accuracy": 0.69,
       "trace_pre": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.03441986049651242,
+        "rho_neg_margin": 0.023933098327458192,
+        "auroc_error": 0.5151940158952781
       },
       "trace_post": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": 0.059483987099677504,
+        "rho_neg_margin": 0.035828395709892755,
+        "auroc_error": 0.516713417484806
       },
       "max_dim_var": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": -0.0027630690767269186,
+        "rho_neg_margin": -0.023318082952073806,
+        "auroc_error": 0.5
       },
       "top_eigenvalue": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": -0.03418885472136804,
+        "rho_neg_margin": -0.008499212480312008,
+        "auroc_error": 0.48071528751753156
       },
       "norm_var": {
-        "rho_entropy": 0.0,
-        "rho_neg_margin": 0.0,
-        "auroc_error": NaN
+        "rho_entropy": -0.014694367359183981,
+        "rho_neg_margin": -0.012930323258081453,
+        "auroc_error": 0.4964936886395512
       },
       "mean_cosine_dev": {
-        "rho_entropy": -0.3273268353539886,
-        "rho_neg_margin": -0.545544725589981,
-        "auroc_error": NaN
+        "rho_entropy": 0.059483987099677504,
+        "rho_neg_margin": 0.035828395709892755,
+        "auroc_error": 0.516713417484806
       }
     }
   },
   "angle2_clip_b32_n2000": {
-    "accuracy": 0.875,
-    "N": 8,
+    "accuracy": 0.555,
+    "N": 200,
     "trace_pre": {
-      "rho_entropy": 0.0,
-      "rho_neg_margin": 0.0,
-      "auroc_error": NaN
+      "rho_entropy": 0.27308932723318086,
+      "rho_neg_margin": 0.11975999399985002,
+      "auroc_error": 0.5991497115092621
     },
     "trace_post": {
-      "rho_entropy": 0.0,
-      "rho_neg_margin": 0.0,
-      "auroc_error": NaN
+      "rho_entropy": 0.20853221330533264,
+      "rho_neg_margin": 0.07657691442286058,
+      "auroc_error": 0.5771839254985323
     },
     "max_dim_var": {
-      "rho_entropy": 0.0,
-      "rho_neg_margin": 0.0,
-      "auroc_error": NaN
+      "rho_entropy": 0.06006450161254032,
+      "rho_neg_margin": 0.00222305557638941,
+      "auroc_error": 0.5348719506022876
     },
     "top_eigenvalue": {
-      "rho_entropy": 0.0,
-      "rho_neg_margin": 0.0,
-      "auroc_error": NaN
+      "rho_entropy": 0.1278301957548939,
+      "rho_neg_margin": 0.028586214655366385,
+      "auroc_error": 0.5574450855349732
     },
     "norm_var": {
-      "rho_entropy": 0.0,
-      "rho_neg_margin": 0.0,
-      "auroc_error": NaN
+      "rho_entropy": -0.05676441911047776,
+      "rho_neg_margin": -0.06177154428860722,
+      "auroc_error": 0.5442858588926005
     },
     "mean_cosine_dev": {
-      "rho_entropy": 0.3161680045562237,
-      "rho_neg_margin": 0.05498573992282151,
-      "auroc_error": 0.5714285714285714
+      "rho_entropy": 0.20853221330533264,
+      "rho_neg_margin": 0.07657691442286058,
+      "auroc_error": 0.5771839254985323
     }
   },
   "angle3_siglip2_correlates": {
-    "accuracy": 0.0,
-    "N": 8,
-    "rho_vs_feat_norm": 0.0,
-    "rho_vs_centroid_distance": 0.0,
-    "rho_vs_max_logit": 0.0,
-    "rho_vs_classification_entropy": 0.0,
-    "rho_vs_negative_margin": 0.0,
-    "rho_vs_correctness": 0.0,
-    "q1_accuracy": 0.0,
-    "q1_mean_unc": 0.0,
-    "q2_accuracy": 0.0,
-    "q2_mean_unc": 0.0,
-    "q3_accuracy": 0.0,
-    "q3_mean_unc": 0.0,
-    "q4_accuracy": 0.0,
-    "q4_mean_unc": 0.0,
-    "q5_accuracy": 0.0,
-    "q5_mean_unc": 0.0
+    "accuracy": 0.69,
+    "N": 200,
+    "rho_vs_feat_norm": -0.040343508587714697,
+    "rho_vs_centroid_distance": 0.13112727818195458,
+    "rho_vs_max_logit": -0.0543988599714993,
+    "rho_vs_classification_entropy": 0.03441986049651242,
+    "rho_vs_negative_margin": 0.023933098327458192,
+    "rho_vs_correctness": -0.024342995593223733,
+    "mean_unc_correct": 0.018576335161924362,
+    "mean_unc_wrong": 0.01867453008890152,
+    "unc_ratio_wrong_over_correct": 1.0052859783172607,
+    "q1_accuracy": 0.75,
+    "q1_mean_unc": 0.015238022431731224,
+    "q2_accuracy": 0.65,
+    "q2_mean_unc": 0.01681392267346382,
+    "q3_accuracy": 0.7,
+    "q3_mean_unc": 0.018227722495794296,
+    "q4_accuracy": 0.625,
+    "q4_mean_unc": 0.01981814019382,
+    "q5_accuracy": 0.725,
+    "q5_mean_unc": 0.02293606661260128
   },
-  "elapsed_seconds": 57.56047534942627
+  "elapsed_seconds": 216.53382897377014
 }

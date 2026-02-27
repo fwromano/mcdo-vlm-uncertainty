@@ -5,7 +5,7 @@ Speedups over run_phase1.py:
   1. All models + pixel tensors pre-loaded into memory at startup
   2. fp16 forward passes (~2x on MPS)
   3. Nested T extraction: one T_max=64 run yields T=4,16,64 for free
-  4. Zero disk I/O during experiment loops — write only final results
+  4. Optional periodic checkpoints to avoid losing long runs
   5. Full-dataset single-batch forward (no batch loop overhead)
 
 Usage:
@@ -27,6 +27,7 @@ from tqdm.auto import tqdm
 
 from phase_one.common import (
     VisionLanguageModel,
+    should_save_checkpoint,
     build_loader,
     discover_class_names,
     list_images,
@@ -55,6 +56,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--device", type=str, default="mps")
     p.add_argument("--dropout", type=float, default=0.01)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--save-every", type=int, default=1, help="Save partial artifacts every N completed trials")
     p.add_argument(
         "--no-half", dest="half", action="store_false", default=True,
         help="Disable fp16 (use fp32 forward passes)",
@@ -325,9 +327,11 @@ def do_exp0(
     seed: int,
     out_dir: Path,
     paths: List[str],
+    save_every: int,
 ) -> Dict:
     T_max = max(passes_list)
     overall: Dict[str, Any] = {}
+    path_arr = np.asarray(paths)
 
     for mkey in model_keys:
         vlm = models[mkey]
@@ -353,6 +357,29 @@ def do_exp0(
                 traces[T]["pre"].append(snaps[T]["trace_pre"].detach().numpy())
                 traces[T]["post"].append(snaps[T]["trace_post"].detach().numpy())
 
+            completed = k + 1
+            if should_save_checkpoint(completed=completed, total=K, every=save_every):
+                for T in passes_list:
+                    np.savez_compressed(
+                        mdir / f"exp0_trials_T{T}_partial.npz",
+                        paths=path_arr,
+                        trial_pre=np.stack(traces[T]["pre"], axis=0),
+                        trial_post=np.stack(traces[T]["post"], axis=0),
+                        completed_trials=np.asarray([completed], dtype=np.int64),
+                        total_trials=np.asarray([K], dtype=np.int64),
+                        passes=np.asarray([T], dtype=np.int64),
+                    )
+                    save_json(
+                        {
+                            "experiment": "exp0_nested_mc",
+                            "model": mkey,
+                            "passes": T,
+                            "completed_trials": completed,
+                            "total_trials": K,
+                        },
+                        str(mdir / f"exp0_progress_T{T}.json"),
+                    )
+
         model_summary: Dict[str, Any] = {}
         for T in passes_list:
             pre_arr = np.stack(traces[T]["pre"])
@@ -364,7 +391,7 @@ def do_exp0(
             model_summary[f"T={T}"] = {"pre_norm": pre_m, "post_norm": post_m}
             np.savez_compressed(
                 mdir / f"exp0_trials_T{T}.npz",
-                paths=np.asarray(paths), trial_pre=pre_arr, trial_post=post_arr,
+                paths=path_arr, trial_pre=pre_arr, trial_post=post_arr,
             )
 
         overall[mkey] = model_summary
@@ -393,10 +420,12 @@ def do_exp0b(
     seed: int,
     out_dir: Path,
     paths: List[str],
+    save_every: int,
 ) -> Dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     vlm = models[model_key]
     pix = pixel_cache[model_key]
+    path_arr = np.asarray(paths)
 
     trial_data: List[Dict[str, Any]] = []
     for k in range(K):
@@ -410,6 +439,26 @@ def do_exp0b(
                 progress_desc=f"Exp0b {model_key} trial {k + 1}/{K}",
             )
         )
+        completed = k + 1
+        if should_save_checkpoint(completed=completed, total=K, every=save_every):
+            np.savez_compressed(
+                out_dir / "exp0b_geometry_trials_partial.npz",
+                paths=path_arr,
+                trace_pre=np.stack([t["trace_pre"].detach().numpy() for t in trial_data], axis=0),
+                trace_post=np.stack([t["trace_post"].detach().numpy() for t in trial_data], axis=0),
+                angular_var=np.stack([t["angular_var"].detach().numpy() for t in trial_data], axis=0),
+                completed_trials=np.asarray([completed], dtype=np.int64),
+                total_trials=np.asarray([K], dtype=np.int64),
+            )
+            save_json(
+                {
+                    "experiment": "exp0b_norm_geometry",
+                    "model": model_key,
+                    "completed_trials": completed,
+                    "total_trials": K,
+                },
+                str(out_dir / "exp0b_progress.json"),
+            )
 
     # Aggregate geometry diagnostics
     trace_pre_d = np.mean([t["trace_pre_per_d"].mean().item() for t in trial_data])
@@ -444,7 +493,7 @@ def do_exp0b(
     # Save arrays from last trial
     np.savez_compressed(
         out_dir / "exp0b_geometry_trials.npz",
-        paths=np.asarray(paths),
+        paths=path_arr,
         trace_pre=tp, trace_post=tq, angular_var=av,
     )
     save_json(summary, str(out_dir / "exp0b_summary.json"))
@@ -461,9 +510,11 @@ def do_exp4(
     seed: int,
     out_dir: Path,
     paths: List[str],
+    save_every: int,
 ) -> Dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     per_model: Dict[str, Any] = {}
+    path_arr = np.asarray(paths)
 
     for mkey in model_keys:
         vlm = models[mkey]
@@ -483,6 +534,26 @@ def do_exp4(
             traces_pre.append(result["trace_pre"].detach().numpy())
             traces_ang.append(result["angular_var"].detach().numpy())
 
+            completed = k + 1
+            if should_save_checkpoint(completed=completed, total=K, every=save_every):
+                np.savez_compressed(
+                    out_dir / f"exp4_{mkey}_partial.npz",
+                    paths=path_arr,
+                    trial_pre=np.stack(traces_pre, axis=0),
+                    trial_angular=np.stack(traces_ang, axis=0),
+                    completed_trials=np.asarray([completed], dtype=np.int64),
+                    total_trials=np.asarray([K], dtype=np.int64),
+                )
+                save_json(
+                    {
+                        "experiment": "exp4_subset_recipe",
+                        "model": mkey,
+                        "completed_trials": completed,
+                        "total_trials": K,
+                    },
+                    str(out_dir / f"exp4_{mkey}_progress.json"),
+                )
+
         pre_arr = np.stack(traces_pre)
         ang_arr = np.stack(traces_ang)
         pre_m = reliability_or_placeholder(pre_arr)
@@ -498,7 +569,7 @@ def do_exp4(
 
         np.savez_compressed(
             out_dir / f"exp4_{mkey}.npz",
-            paths=np.asarray(paths), trial_pre=pre_arr, trial_angular=ang_arr,
+            paths=path_arr, trial_pre=pre_arr, trial_angular=ang_arr,
         )
 
     summary = {
@@ -523,11 +594,13 @@ def do_exp5(
     data_dir: str,
     class_map: str,
     templates_raw: str,
+    save_every: int,
 ) -> Dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     templates = parse_templates(templates_raw)
     class_names = discover_class_names(data_dir, mapping_path=class_map or None)
     print(f"  [Exp5] {len(class_names)} classes × {len(templates)} templates")
+    path_arr = np.asarray(paths)
 
     all_summaries: Dict[str, Any] = {}
     skipped: Dict[str, str] = {}
@@ -572,6 +645,28 @@ def do_exp5(
                 )
                 unc_trials.append(trial["trace_pre"].detach().numpy())
 
+                completed = k + 1
+                if should_save_checkpoint(completed=completed, total=K, every=save_every):
+                    np.savez_compressed(
+                        out_dir / f"exp5_subset_{mkey}_partial.npz",
+                        paths=path_arr,
+                        uncertainty_trials=np.stack(unc_trials, axis=0),
+                        margin=margin_arr,
+                        entropy=entropy_arr,
+                        prompt_sensitivity=prompt_var_arr,
+                        completed_trials=np.asarray([completed], dtype=np.int64),
+                        total_trials=np.asarray([K], dtype=np.int64),
+                    )
+                    save_json(
+                        {
+                            "experiment": "exp5_subset_ambiguity",
+                            "model": mkey,
+                            "completed_trials": completed,
+                            "total_trials": K,
+                        },
+                        str(out_dir / f"exp5_subset_{mkey}_progress.json"),
+                    )
+
             unc_arr = np.stack(unc_trials).mean(axis=0)
 
             quantile = 0.10
@@ -605,7 +700,7 @@ def do_exp5(
 
             np.savez_compressed(
                 out_dir / f"exp5_subset_{mkey}.npz",
-                paths=np.asarray(paths), uncertainty=unc_arr,
+                paths=path_arr, uncertainty=unc_arr,
                 margin=margin_arr, entropy=entropy_arr,
                 prompt_sensitivity=prompt_var_arr,
                 logits=logits_np, gt_labels=gt_labels,
@@ -684,6 +779,7 @@ def main() -> None:
     print(f"  PHASE 1 FAST RUNNER — {'fp16' if args.half else 'fp32'} on {args.device}")
     print(f"  Models: {sorted(needed_models)}")
     print(f"  Max images: {len(max_sampled)}")
+    print(f"  Save every: {args.save_every} trial(s)")
     print(f"{'='*60}\n")
 
     print("[PRELOAD] Loading PIL images into memory...")
@@ -742,7 +838,7 @@ def main() -> None:
             paths0 = pixels_for(avail[0], args.exp0_num_images)[1]
             do_exp0(
                 {m: models[m] for m in avail}, pcache, avail, passes_list,
-                args.exp0_trials, args.dropout, args.seed, out_root / "exp0_nested_mc", paths0,
+                args.exp0_trials, args.dropout, args.seed, out_root / "exp0_nested_mc", paths0, args.save_every,
             )
 
     if "exp0b" in selected and args.exp0b_model in models:
@@ -751,7 +847,7 @@ def main() -> None:
         pix, paths_0b = pixels_for(mkey, args.exp0b_num_images)
         do_exp0b(
             models, {mkey: pix}, mkey, args.exp0b_passes, args.exp0b_trials,
-            args.dropout, args.seed, out_root / "exp0b_norm_geometry", paths_0b,
+            args.dropout, args.seed, out_root / "exp0b_norm_geometry", paths_0b, args.save_every,
         )
 
     if "exp4" in selected:
@@ -764,7 +860,7 @@ def main() -> None:
             paths4 = pixels_for(avail[0], args.exp4_num_images)[1]
             do_exp4(
                 {m: models[m] for m in avail}, pcache, avail, args.exp4_passes,
-                args.exp4_trials, args.dropout, args.seed, out_root / "exp4_subset_recipe", paths4,
+                args.exp4_trials, args.dropout, args.seed, out_root / "exp4_subset_recipe", paths4, args.save_every,
             )
 
     if "exp5" in selected:
@@ -778,7 +874,7 @@ def main() -> None:
             do_exp5(
                 {m: models[m] for m in avail}, pcache, avail, args.exp5_passes,
                 args.exp5_trials, args.dropout, args.seed, out_root / "exp5_subset_ambiguity",
-                paths5, args.data_dir, args.exp5_class_map, args.exp5_templates,
+                paths5, args.data_dir, args.exp5_class_map, args.exp5_templates, args.save_every,
             )
 
     elapsed = time.perf_counter() - t_start

@@ -32,6 +32,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--exp1-p-values", type=str, default="0.001,0.005,0.01,0.02,0.05,0.1")
     parser.add_argument("--exp1-passes", type=int, default=64)
     parser.add_argument("--exp1-trials", type=int, default=3)
+    parser.add_argument(
+        "--exp1-resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Resume Exp1 from partial checkpoints when available",
+    )
 
     parser.add_argument("--exp2-models", type=str, default="clip_b32,siglip2_so400m")
     parser.add_argument("--exp2-num-natural", type=int, default=10)
@@ -131,6 +137,7 @@ def main() -> None:
                     str(args.seed),
                     "--save-every",
                     str(args.save_every),
+                    "--resume" if args.exp1_resume else "--no-resume",
                 ]
             )
             continue
