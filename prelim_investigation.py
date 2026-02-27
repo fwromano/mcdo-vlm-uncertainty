@@ -7,7 +7,9 @@ Angle 2: clip_b32 at larger N (N=2000) to confirm signal
 Angle 3: What does siglip2_b16 uncertainty actually correlate with?
 """
 from __future__ import annotations
-import json, time
+import argparse
+import json
+import time
 from pathlib import Path
 import numpy as np
 import torch
@@ -24,9 +26,37 @@ CLASS_MAP = "data/imagenet_class_map.json"
 TEMPLATES = ["a photo of a {}", "a {}", "an image of a {}"]
 DROPOUT = 0.01
 PASSES = 64
-DEVICE = "mps"
+DEVICE = "cpu"
 SEED = 42
 BATCH_SIZE = 32
+ANGLE1_NUM_IMAGES = 500
+ANGLE2_NUM_IMAGES = 2000
+ANGLE3_NUM_IMAGES = 1000
+OUT_PATH = "outputs/prelim_investigation.json"
+
+
+def detect_default_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run preliminary MC-dropout investigation")
+    parser.add_argument("--data-dir", type=str, default=DATA_DIR)
+    parser.add_argument("--class-map", type=str, default=CLASS_MAP)
+    parser.add_argument("--out", type=str, default=OUT_PATH)
+    parser.add_argument("--device", type=str, default=detect_default_device())
+    parser.add_argument("--dropout", type=float, default=DROPOUT)
+    parser.add_argument("--passes", type=int, default=PASSES)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--angle1-num-images", type=int, default=ANGLE1_NUM_IMAGES)
+    parser.add_argument("--angle2-num-images", type=int, default=ANGLE2_NUM_IMAGES)
+    parser.add_argument("--angle3-num-images", type=int, default=ANGLE3_NUM_IMAGES)
+    return parser.parse_args()
 
 def auroc_safe(scores, labels):
     labels = np.asarray(labels, dtype=np.int64)
@@ -119,35 +149,35 @@ def get_classification_signals(vlm, loader, class_names, data_dir, templates):
     }
 
 
-def run_angle1(results):
+def run_angle1(results, args):
     """Alternative uncertainty metrics for both models, N=500."""
     print("\n" + "="*60)
     print("ANGLE 1: Alternative Uncertainty Metrics (N=500)")
     print("="*60)
 
-    all_paths = list_images(DATA_DIR)
-    sampled = sample_paths(all_paths, 500, SEED)
-    class_names = discover_class_names(DATA_DIR, mapping_path=CLASS_MAP)
+    all_paths = list_images(args.data_dir)
+    sampled = sample_paths(all_paths, args.angle1_num_images, args.seed)
+    class_names = discover_class_names(args.data_dir, mapping_path=args.class_map)
     angle1 = {}
 
     for model_key in ["clip_b32", "siglip2_b16"]:
         print(f"\n--- {model_key} ---")
-        set_all_seeds(SEED)
-        vlm = load_model(model_key, device=DEVICE)
-        vlm.ensure_uniform_dropout(DROPOUT)
-        loader = build_loader(sampled, batch_size=BATCH_SIZE, num_workers=0)
+        set_all_seeds(args.seed)
+        vlm = load_model(model_key, device=args.device)
+        vlm.ensure_uniform_dropout(args.dropout)
+        loader = build_loader(sampled, batch_size=args.batch_size, num_workers=0)
 
         # Get classification signals
         vlm.disable_dropout()
-        signals = get_classification_signals(vlm, loader, class_names, DATA_DIR, TEMPLATES)
+        signals = get_classification_signals(vlm, loader, class_names, args.data_dir, TEMPLATES)
         correct = (signals["pred"] == signals["gt"]).astype(int)
         accuracy = correct.mean()
         print(f"  Accuracy: {accuracy:.1%} ({correct.sum()}/{len(correct)})")
 
         # Run MC with per-pass features
-        vlm.ensure_uniform_dropout(DROPOUT)
+        vlm.ensure_uniform_dropout(args.dropout)
         trial = run_mc_trial(
-            vlm=vlm, loader=loader, passes=PASSES,
+            vlm=vlm, loader=loader, passes=args.passes,
             collect_pass_features=True, progress=True, progress_desc=f"{model_key} MC"
         )
 
@@ -168,42 +198,43 @@ def run_angle1(results):
 
         angle1[model_key] = model_results
         del vlm
-        torch.mps.empty_cache() if hasattr(torch.mps, "empty_cache") else None
+        if args.device == "mps" and hasattr(torch.mps, "empty_cache"):
+            torch.mps.empty_cache()
 
     results["angle1_alt_metrics"] = angle1
 
 
-def run_angle2(results):
+def run_angle2(results, args):
     """clip_b32 at N=2000 to confirm signal strength."""
     print("\n" + "="*60)
     print("ANGLE 2: clip_b32 at N=2000")
     print("="*60)
 
-    all_paths = list_images(DATA_DIR)
-    sampled = sample_paths(all_paths, 2000, SEED)
-    class_names = discover_class_names(DATA_DIR, mapping_path=CLASS_MAP)
+    all_paths = list_images(args.data_dir)
+    sampled = sample_paths(all_paths, args.angle2_num_images, args.seed)
+    class_names = discover_class_names(args.data_dir, mapping_path=args.class_map)
 
-    set_all_seeds(SEED)
-    vlm = load_model("clip_b32", device=DEVICE)
-    vlm.ensure_uniform_dropout(DROPOUT)
-    loader = build_loader(sampled, batch_size=BATCH_SIZE, num_workers=0)
+    set_all_seeds(args.seed)
+    vlm = load_model("clip_b32", device=args.device)
+    vlm.ensure_uniform_dropout(args.dropout)
+    loader = build_loader(sampled, batch_size=args.batch_size, num_workers=0)
 
     # Classification
     vlm.disable_dropout()
-    signals = get_classification_signals(vlm, loader, class_names, DATA_DIR, TEMPLATES)
+    signals = get_classification_signals(vlm, loader, class_names, args.data_dir, TEMPLATES)
     correct = (signals["pred"] == signals["gt"]).astype(int)
     accuracy = correct.mean()
     print(f"  Accuracy: {accuracy:.1%} ({correct.sum()}/{len(correct)})")
 
     # MC with per-pass features
-    vlm.ensure_uniform_dropout(DROPOUT)
+    vlm.ensure_uniform_dropout(args.dropout)
     trial = run_mc_trial(
-        vlm=vlm, loader=loader, passes=PASSES,
+        vlm=vlm, loader=loader, passes=args.passes,
         collect_pass_features=True, progress=True, progress_desc="clip_b32 N=2000 MC"
     )
 
     alt_metrics = compute_alt_metrics(trial["pass_pre"], trial["pass_post"])
-    angle2 = {"accuracy": float(accuracy), "N": 2000}
+    angle2 = {"accuracy": float(accuracy), "N": len(sampled)}
 
     for metric_name, unc_arr in alt_metrics.items():
         rho_entropy = spearman_safe(unc_arr, signals["entropy"])
@@ -219,27 +250,28 @@ def run_angle2(results):
 
     results["angle2_clip_b32_n2000"] = angle2
     del vlm
-    torch.mps.empty_cache() if hasattr(torch.mps, "empty_cache") else None
+    if args.device == "mps" and hasattr(torch.mps, "empty_cache"):
+        torch.mps.empty_cache()
 
 
-def run_angle3(results):
+def run_angle3(results, args):
     """What does siglip2_b16 uncertainty correlate with?"""
     print("\n" + "="*60)
     print("ANGLE 3: What does siglip2_b16 uncertainty correlate with? (N=1000)")
     print("="*60)
 
-    all_paths = list_images(DATA_DIR)
-    sampled = sample_paths(all_paths, 1000, SEED)
-    class_names = discover_class_names(DATA_DIR, mapping_path=CLASS_MAP)
+    all_paths = list_images(args.data_dir)
+    sampled = sample_paths(all_paths, args.angle3_num_images, args.seed)
+    class_names = discover_class_names(args.data_dir, mapping_path=args.class_map)
 
-    set_all_seeds(SEED)
-    vlm = load_model("siglip2_b16", device=DEVICE)
-    vlm.ensure_uniform_dropout(DROPOUT)
-    loader = build_loader(sampled, batch_size=BATCH_SIZE, num_workers=0)
+    set_all_seeds(args.seed)
+    vlm = load_model("siglip2_b16", device=args.device)
+    vlm.ensure_uniform_dropout(args.dropout)
+    loader = build_loader(sampled, batch_size=args.batch_size, num_workers=0)
 
     # Classification
     vlm.disable_dropout()
-    signals = get_classification_signals(vlm, loader, class_names, DATA_DIR, TEMPLATES)
+    signals = get_classification_signals(vlm, loader, class_names, args.data_dir, TEMPLATES)
     correct = (signals["pred"] == signals["gt"]).astype(int)
     accuracy = correct.mean()
     print(f"  Accuracy: {accuracy:.1%} ({correct.sum()}/{len(correct)})")
@@ -261,9 +293,9 @@ def run_angle3(results):
     centroid_dist = (1.0 - (det_post @ centroid.unsqueeze(1)).squeeze()).numpy()
 
     # MC uncertainty
-    vlm.ensure_uniform_dropout(DROPOUT)
+    vlm.ensure_uniform_dropout(args.dropout)
     trial = run_mc_trial(
-        vlm=vlm, loader=loader, passes=PASSES,
+        vlm=vlm, loader=loader, passes=args.passes,
         collect_pass_features=True, progress=True, progress_desc="siglip2_b16 N=1000 MC"
     )
     unc_trace = trial["trace_pre"].numpy()
@@ -277,10 +309,10 @@ def run_angle3(results):
 
     # Max logit (deterministic)
     with torch.no_grad():
-        logits = vlm.similarity_logits(det_post.to(DEVICE), text_features[0])
+        logits = vlm.similarity_logits(det_post.to(args.device), text_features[0])
         max_logit = logits.max(dim=-1).values.detach().cpu().numpy()
 
-    angle3 = {"accuracy": float(accuracy), "N": 1000}
+    angle3 = {"accuracy": float(accuracy), "N": len(sampled)}
     correlates = {
         "feat_norm": feat_norms,
         "centroid_distance": centroid_dist,
@@ -323,16 +355,18 @@ def run_angle3(results):
 
     results["angle3_siglip2_correlates"] = angle3
     del vlm
-    torch.mps.empty_cache() if hasattr(torch.mps, "empty_cache") else None
+    if args.device == "mps" and hasattr(torch.mps, "empty_cache"):
+        torch.mps.empty_cache()
 
 
 def main():
+    args = parse_args()
     t0 = time.time()
     results = {}
 
-    run_angle1(results)
-    run_angle2(results)
-    run_angle3(results)
+    run_angle1(results, args)
+    run_angle2(results, args)
+    run_angle3(results, args)
 
     elapsed = time.time() - t0
     results["elapsed_seconds"] = elapsed
@@ -340,7 +374,7 @@ def main():
     print(f"Total elapsed: {elapsed/60:.1f} minutes")
     print(f"{'='*60}")
 
-    out_path = Path("outputs/prelim_investigation.json")
+    out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2, default=str)

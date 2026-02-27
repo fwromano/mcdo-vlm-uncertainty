@@ -4,7 +4,7 @@ import json
 import os
 import random
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -49,17 +49,23 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
     "siglip2_b16": ModelSpec(
         key="siglip2_b16",
-        backend="siglip2",
+        backend="open_clip",
+        open_clip_model="ViT-B-16-SigLIP2",
+        open_clip_pretrained="webli",
         hf_model_id="google/siglip2-base-patch16-224",
     ),
     "siglip2_so400m": ModelSpec(
         key="siglip2_so400m",
-        backend="siglip2",
+        backend="open_clip",
+        open_clip_model="ViT-SO400M-14-SigLIP2-378",
+        open_clip_pretrained="webli",
         hf_model_id="google/siglip2-so400m-patch14-384",
     ),
     "siglip2_g16": ModelSpec(
         key="siglip2_g16",
-        backend="siglip2",
+        backend="open_clip",
+        open_clip_model="ViT-gopt-16-SigLIP2-384",
+        open_clip_pretrained="webli",
         hf_model_id="google/siglip2-giant-patch16-384",
     ),
 }
@@ -350,24 +356,49 @@ def load_model(spec_key: str, device: str) -> VisionLanguageModel:
         known = ", ".join(sorted(MODEL_REGISTRY))
         raise KeyError(f"Unknown model key `{spec_key}`. Known: {known}")
     spec = MODEL_REGISTRY[spec_key]
+    effective_spec = spec
 
-    if spec.backend == "open_clip":
+    # Allow explicit backend override for SigLIP2 models.
+    # Useful when open_clip assets are unavailable in offline/local-only setups.
+    backend_override = os.environ.get("MCDO_SIGLIP2_BACKEND", "").strip().lower()
+    if spec.key.startswith("siglip2"):
+        if backend_override in {"hf", "siglip2", "transformers"}:
+            effective_spec = replace(spec, backend="siglip2")
+        elif backend_override in {"open_clip", "openclip"}:
+            effective_spec = replace(spec, backend="open_clip")
+
+    if effective_spec.backend == "open_clip":
         import open_clip
 
-        model, _, preprocess = open_clip.create_model_and_transforms(
-            spec.open_clip_model,
-            pretrained=spec.open_clip_pretrained,
-            device=device,
-        )
-        tokenizer = open_clip.get_tokenizer(spec.open_clip_model)
-        model.eval()
-        return VisionLanguageModel(
-            spec=spec,
-            model=model,
-            image_processor=preprocess,
-            text_processor=tokenizer,
-            device=device,
-        )
+        try:
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                effective_spec.open_clip_model,
+                pretrained=effective_spec.open_clip_pretrained,
+                device=device,
+            )
+            tokenizer = open_clip.get_tokenizer(effective_spec.open_clip_model)
+            model.eval()
+            return VisionLanguageModel(
+                spec=effective_spec,
+                model=model,
+                image_processor=preprocess,
+                text_processor=tokenizer,
+                device=device,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # For SigLIP2, keep an escape hatch to HF backend if open_clip assets
+            # are unavailable in this environment.
+            if spec.hf_model_id and spec.key.startswith("siglip2"):
+                warnings.warn(
+                    "open_clip load failed for "
+                    f"`{effective_spec.key}` ({exc}). "
+                    "Falling back to HuggingFace backend. "
+                    "Set MCDO_SIGLIP2_BACKEND=hf to force this path.",
+                    RuntimeWarning,
+                )
+                effective_spec = replace(spec, backend="siglip2")
+            else:
+                raise
 
     from transformers import AutoModel
 
@@ -384,7 +415,7 @@ def load_model(spec_key: str, device: str) -> VisionLanguageModel:
         from transformers import AutoProcessor
 
         processor = AutoProcessor.from_pretrained(
-            spec.hf_model_id,
+            effective_spec.hf_model_id,
             use_fast=False,
             **hf_kwargs,
         )
@@ -395,20 +426,20 @@ def load_model(spec_key: str, device: str) -> VisionLanguageModel:
         from transformers import AutoImageProcessor, AutoTokenizer
 
         image_processor = AutoImageProcessor.from_pretrained(
-            spec.hf_model_id,
+            effective_spec.hf_model_id,
             use_fast=False,
             **hf_kwargs,
         )
         try:
             text_processor = AutoTokenizer.from_pretrained(
-                spec.hf_model_id,
+                effective_spec.hf_model_id,
                 use_fast=False,
                 **hf_kwargs,
             )
         except Exception as tok_exc:  # noqa: BLE001
             warnings.warn(
                 "Tokenizer load failed for "
-                f"`{spec.hf_model_id}` ({tok_exc}). Text-dependent experiments "
+                f"`{effective_spec.hf_model_id}` ({tok_exc}). Text-dependent experiments "
                 "require `protobuf` and `sentencepiece` "
                 "(install: `pip install protobuf sentencepiece`). "
                 f"Original AutoProcessor error: {processor_error}",
@@ -416,11 +447,11 @@ def load_model(spec_key: str, device: str) -> VisionLanguageModel:
             )
             text_processor = None
 
-    model = AutoModel.from_pretrained(spec.hf_model_id, **hf_kwargs)
+    model = AutoModel.from_pretrained(effective_spec.hf_model_id, **hf_kwargs)
     model.to(device)
     model.eval()
     return VisionLanguageModel(
-        spec=spec,
+        spec=effective_spec,
         model=model,
         image_processor=image_processor,
         text_processor=text_processor,

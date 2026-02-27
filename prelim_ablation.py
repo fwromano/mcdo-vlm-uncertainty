@@ -8,7 +8,9 @@ and check that MC dropout uncertainty increases with degradation.
 This is a paired test — each image is its own control.
 """
 from __future__ import annotations
-import json, time
+import argparse
+import json
+import time
 from pathlib import Path
 import numpy as np
 import torch
@@ -24,12 +26,34 @@ from torch.utils.data import DataLoader
 
 
 DATA_DIR = "data/raw/imagenet_val"
-DEVICE = "mps"
+DEVICE = "cpu"
 DROPOUT = 0.01
 PASSES = 64
 SEED = 42
 N = 500
 BATCH_SIZE = 32
+OUT_PATH = "outputs/prelim_ablation.json"
+
+
+def detect_default_device() -> str:
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run image-ablation uncertainty test")
+    parser.add_argument("--data-dir", type=str, default=DATA_DIR)
+    parser.add_argument("--out", type=str, default=OUT_PATH)
+    parser.add_argument("--device", type=str, default=detect_default_device())
+    parser.add_argument("--dropout", type=float, default=DROPOUT)
+    parser.add_argument("--passes", type=int, default=PASSES)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--num-images", type=int, default=N)
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    return parser.parse_args()
 
 
 class DegradedImageDataset(torch.utils.data.Dataset):
@@ -67,14 +91,14 @@ def heavy_downsample(img, factor=8):
     return small.resize((w, h), Image.BILINEAR)
 
 
-def run_test(model_key, sampled_paths):
+def run_test(model_key, sampled_paths, args):
     print(f"\n{'='*50}")
     print(f"Model: {model_key}")
     print(f"{'='*50}")
 
-    set_all_seeds(SEED)
-    vlm = load_model(model_key, device=DEVICE)
-    vlm.ensure_uniform_dropout(DROPOUT)
+    set_all_seeds(args.seed)
+    vlm = load_model(model_key, device=args.device)
+    vlm.ensure_uniform_dropout(args.dropout)
 
     degradations = {
         "clean": None,
@@ -91,10 +115,10 @@ def run_test(model_key, sampled_paths):
         print(f"\n  --- {deg_name} ---")
 
         if deg_fn is None:
-            loader = build_loader(sampled_paths, batch_size=BATCH_SIZE, num_workers=0)
+            loader = build_loader(sampled_paths, batch_size=args.batch_size, num_workers=0)
         else:
             ds = DegradedImageDataset(sampled_paths, deg_fn)
-            loader = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0, collate_fn=pil_collate)
+            loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=0, collate_fn=pil_collate)
 
         # Deterministic embedding
         vlm.disable_dropout()
@@ -107,9 +131,9 @@ def run_test(model_key, sampled_paths):
         det_embeddings[deg_name] = det_emb
 
         # MC uncertainty
-        vlm.ensure_uniform_dropout(DROPOUT)
+        vlm.ensure_uniform_dropout(args.dropout)
         trial = run_mc_trial(
-            vlm=vlm, loader=loader, passes=PASSES,
+            vlm=vlm, loader=loader, passes=args.passes,
             collect_pass_features=False,
             progress=True, progress_desc=f"{model_key}/{deg_name}",
             cache_precomputed_pixels=False,
@@ -120,7 +144,7 @@ def run_test(model_key, sampled_paths):
 
     # Paired comparisons: each degraded vs clean
     clean_unc = uncertainties["clean"]
-    results = {"model": model_key, "N": N, "comparisons": {}}
+    results = {"model": model_key, "N": len(sampled_paths), "comparisons": {}}
 
     for deg_name in ["blur_r5", "blur_r15", "downsample_4x", "downsample_8x"]:
         deg_unc = uncertainties[deg_name]
@@ -159,19 +183,21 @@ def run_test(model_key, sampled_paths):
 
 
 def main():
+    args = parse_args()
     t0 = time.time()
-    all_paths = list_images(DATA_DIR)
-    sampled = sample_paths(all_paths, N, SEED)
+    all_paths = list_images(args.data_dir)
+    sampled = sample_paths(all_paths, args.num_images, args.seed)
 
     all_results = {}
     for model_key in ["clip_b32", "siglip2_b16"]:
-        all_results[model_key] = run_test(model_key, sampled)
-        torch.mps.empty_cache() if hasattr(torch.mps, "empty_cache") else None
+        all_results[model_key] = run_test(model_key, sampled, args)
+        if args.device == "mps" and hasattr(torch.mps, "empty_cache"):
+            torch.mps.empty_cache()
 
     elapsed = time.time() - t0
     all_results["elapsed_seconds"] = elapsed
 
-    out_path = Path("outputs/prelim_ablation.json")
+    out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(all_results, f, indent=2, default=str)
