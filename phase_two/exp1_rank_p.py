@@ -47,6 +47,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Resume from per-p partial checkpoints when available",
     )
+    parser.add_argument(
+        "--live-progress",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show per-pass tqdm progress bars for each trial",
+    )
     return parser.parse_args()
 
 
@@ -170,6 +176,10 @@ def _release_lock(lock_path: Path) -> None:
         pass
 
 
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
+
 def main() -> None:
     args = parse_args()
     out_dir = Path(args.out_dir)
@@ -192,7 +202,7 @@ def main() -> None:
         overall: Dict[str, Dict[str, object]] = {}
 
         for model_key in model_keys:
-            print(f"[Exp1] model={model_key}")
+            log(f"[Exp1] model={model_key}")
             model_out = out_dir / model_key
             model_out.mkdir(parents=True, exist_ok=True)
 
@@ -227,15 +237,29 @@ def main() -> None:
                         expected_p=p,
                     )
                     if trial_unc:
-                        print(f"[Exp1] {model_key} p={p}: resuming from {len(trial_unc)}/{args.trials} trial(s)")
+                        log(f"[Exp1] {model_key} p={p}: resuming from {len(trial_unc)}/{args.trials} trial(s)")
+                else:
+                    log(f"[Exp1] {model_key} p={p}: resume disabled")
 
                 start_trial = len(trial_unc)
+                if start_trial >= args.trials:
+                    log(f"[Exp1] {model_key} p={p}: already complete ({args.trials}/{args.trials}), skipping")
                 for trial_idx in range(start_trial, args.trials):
+                    log(f"[Exp1] {model_key} p={p}: trial {trial_idx + 1}/{args.trials} starting")
                     set_all_seeds(args.seed + int(p * 1e6) + trial_idx)
                     cfg = configure_dropout(vlm, dropout_type="E", p=p)
                     wrapped_count = max(wrapped_count, cfg.wrapped_modules)
-                    trial = run_mc_trial(vlm=vlm, loader=loader, passes=args.passes, collect_pass_features=False)
+                    trial = run_mc_trial(
+                        vlm=vlm,
+                        loader=loader,
+                        passes=args.passes,
+                        collect_pass_features=False,
+                        progress=args.live_progress,
+                        progress_desc=f"Exp1 {model_key} p={p} trial {trial_idx + 1}/{args.trials}",
+                        progress_leave=False,
+                    )
                     trial_unc.append(trial["trace_pre"].numpy())
+                    log(f"[Exp1] {model_key} p={p}: trial {trial_idx + 1}/{args.trials} complete")
 
                     completed = len(trial_unc)
                     if should_save_checkpoint(completed=completed, total=args.trials, every=args.save_every):
@@ -259,12 +283,17 @@ def main() -> None:
                             },
                             str(progress_path),
                         )
+                        log(
+                            f"[Exp1] checkpoint saved: {partial_path} "
+                            f"({completed}/{args.trials} trials); progress: {progress_path}"
+                        )
 
                 arr = np.stack(trial_unc, axis=0)
                 p_mean_unc.append(arr.mean(axis=0))
                 p_trial_arrays[p_key] = arr
                 p_reliability[p_key] = reliability_from_trials(arr)
                 p_wrapped[p_key] = wrapped_count
+                log(f"[Exp1] {model_key} p={p}: done ({arr.shape[0]}/{args.trials} trials)")
 
             mean_matrix = np.stack(p_mean_unc, axis=0)
             rho_matrix = spearman_matrix(mean_matrix)
@@ -301,7 +330,7 @@ def main() -> None:
         }
         save_json(overall_summary, str(out_dir / "exp1_overall_summary.json"))
 
-        print(f"[Exp1] Complete: {out_dir}")
+        log(f"[Exp1] Complete: {out_dir}")
     finally:
         _release_lock(lock_path)
 

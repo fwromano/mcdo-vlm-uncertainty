@@ -1,0 +1,418 @@
+{
+  "gaussian_block11": {
+    "module": "transformer.resblocks.11.mlp.c_proj",
+    "ptype": "gaussian",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.33334299737198947,
+        "rho_margin": -0.14426505706022824,
+        "auroc_error": 0.5846944151738672
+      },
+      "trace_post": {
+        "rho_entropy": 0.21441647366589467,
+        "rho_margin": -0.10921234084936339,
+        "auroc_error": 0.5686248682824026
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.30795243180972726,
+        "rho_margin": -0.15114070056280227,
+        "auroc_error": 0.5791787407797682
+      },
+      "norm_var": {
+        "rho_entropy": 0.2315955503822015,
+        "rho_margin": -0.09368994275977102,
+        "auroc_error": 0.5228530031612223
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.21426518905043865,
+        "rho_margin": -0.10919881183146234,
+        "auroc_error": 0.5686495653319283
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.3273003492013968,
+        "rho_margin": -0.14406604826419306,
+        "auroc_error": 0.5861762381454162
+      },
+      "effective_rank": {
+        "rho_entropy": -0.04251588206352825,
+        "rho_margin": 0.02251708206832827,
+        "auroc_error": 0.48610379346680715
+      },
+      "spectral_entropy": {
+        "rho_entropy": -0.038665456229651014,
+        "rho_margin": 0.020947622806949128,
+        "auroc_error": 0.4971104452054795
+      },
+      "top1_ratio": {
+        "rho_entropy": 0.010359113436453744,
+        "rho_margin": 0.0005022740090960364,
+        "auroc_error": 0.5337361696522656
+      }
+    }
+  },
+  "gaussian_block10": {
+    "module": "transformer.resblocks.10.mlp.c_proj",
+    "ptype": "gaussian",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.30238652154608614,
+        "rho_margin": -0.0800809283237133,
+        "auroc_error": 0.5609687829293993
+      },
+      "trace_post": {
+        "rho_entropy": 0.19620961683846733,
+        "rho_margin": -0.053430357721430885,
+        "auroc_error": 0.5444382244467861
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.18923758895035578,
+        "rho_margin": -0.019119628478513912,
+        "auroc_error": 0.5282369599578504
+      },
+      "norm_var": {
+        "rho_entropy": 0.16621717686870746,
+        "rho_margin": 0.006516122064488257,
+        "auroc_error": 0.50997760800843
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.19633249085759963,
+        "rho_margin": -0.05347286227507986,
+        "auroc_error": 0.5445205479452054
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.2512285889143556,
+        "rho_margin": -0.02333193332773331,
+        "auroc_error": 0.5298340358271865
+      },
+      "effective_rank": {
+        "rho_entropy": -0.006024216096864387,
+        "rho_margin": -0.10989960759843038,
+        "auroc_error": 0.5410629610115911
+      },
+      "spectral_entropy": {
+        "rho_entropy": -0.0009370597707285176,
+        "rho_margin": -0.11785986626810188,
+        "auroc_error": 0.5410300316122234
+      },
+      "top1_ratio": {
+        "rho_entropy": 0.017996519986079946,
+        "rho_margin": 0.08140611762447049,
+        "auroc_error": 0.4747760800842993
+      }
+    }
+  },
+  "gaussian_block9": {
+    "module": "transformer.resblocks.9.mlp.c_proj",
+    "ptype": "gaussian",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.3769017316069264,
+        "rho_margin": -0.11475962703850814,
+        "auroc_error": 0.5968947576396206
+      },
+      "trace_post": {
+        "rho_entropy": 0.26774439897759594,
+        "rho_margin": -0.07775176700706803,
+        "auroc_error": 0.5800349051633298
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.1928555554222217,
+        "rho_margin": -0.007330493321973287,
+        "auroc_error": 0.523165832455216
+      },
+      "norm_var": {
+        "rho_entropy": 0.13881338725354903,
+        "rho_margin": -0.029701558806235224,
+        "auroc_error": 0.49855110642781875
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.2677719163386295,
+        "rho_margin": -0.07785187917108986,
+        "auroc_error": 0.580010208113804
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.26143506174024694,
+        "rho_margin": -0.04635743342973372,
+        "auroc_error": 0.5530986564805058
+      },
+      "effective_rank": {
+        "rho_entropy": -0.010296137184548738,
+        "rho_margin": -0.0844191856767427,
+        "auroc_error": 0.5293894889357218
+      },
+      "spectral_entropy": {
+        "rho_entropy": -0.012846579386317544,
+        "rho_margin": -0.0897063108252433,
+        "auroc_error": 0.5316122233930453
+      },
+      "top1_ratio": {
+        "rho_entropy": 0.003235692942771771,
+        "rho_margin": 0.05781805527222108,
+        "auroc_error": 0.4740680979978925
+      }
+    }
+  },
+  "gaussian_block0": {
+    "module": "transformer.resblocks.0.mlp.c_proj",
+    "ptype": "gaussian",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.3367819231276925,
+        "rho_margin": -0.08102787611150444,
+        "auroc_error": 0.5850401738672286
+      },
+      "trace_post": {
+        "rho_entropy": 0.2968348193392773,
+        "rho_margin": -0.06707268429073715,
+        "auroc_error": 0.5771371180189674
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.1986568586274345,
+        "rho_margin": 0.014535514142056567,
+        "auroc_error": 0.5530986564805058
+      },
+      "norm_var": {
+        "rho_entropy": 0.1898820395281581,
+        "rho_margin": 0.0034522698090792355,
+        "auroc_error": 0.5496246048472075
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.2968834705388104,
+        "rho_margin": -0.06711275510797851,
+        "auroc_error": 0.5771535827186512
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.23713986055944222,
+        "rho_margin": -0.04616437665750663,
+        "auroc_error": 0.5544816912539515
+      },
+      "effective_rank": {
+        "rho_entropy": 0.009946023784095136,
+        "rho_margin": -0.05550233400933604,
+        "auroc_error": 0.5180288461538461
+      },
+      "spectral_entropy": {
+        "rho_entropy": 0.0032414529658118633,
+        "rho_margin": -0.0658376393505574,
+        "auroc_error": 0.5156085353003161
+      },
+      "top1_ratio": {
+        "rho_entropy": -0.01507426829707319,
+        "rho_margin": 0.04587877551510206,
+        "auroc_error": 0.48034114857745
+      }
+    }
+  },
+  "dropout_block11": {
+    "module": "transformer.resblocks.11.mlp.c_proj",
+    "ptype": "dropout",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.24002208008832035,
+        "rho_margin": -0.007953343813375252,
+        "auroc_error": 0.5371443624868283
+      },
+      "trace_post": {
+        "rho_entropy": 0.10297193188772755,
+        "rho_margin": 0.03279161916647667,
+        "auroc_error": 0.5210583508956796
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.025892839571358284,
+        "rho_margin": 0.016846435385741543,
+        "auroc_error": 0.5402726554267651
+      },
+      "norm_var": {
+        "rho_entropy": -0.087001212004848,
+        "rho_margin": 0.06491593966375865,
+        "auroc_error": 0.5080183087460485
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.10296805375714868,
+        "rho_margin": 0.032778662261400776,
+        "auroc_error": 0.5210912802950474
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.19971507086028345,
+        "rho_margin": -0.060685298741194965,
+        "auroc_error": 0.5543829030558483
+      },
+      "effective_rank": {
+        "rho_entropy": -0.18481840327361307,
+        "rho_margin": 0.09062109848439392,
+        "auroc_error": 0.43272523709167543
+      },
+      "spectral_entropy": {
+        "rho_entropy": -0.2158786606957307,
+        "rho_margin": 0.09663859687371384,
+        "auroc_error": 0.4258676896733404
+      },
+      "top1_ratio": {
+        "rho_entropy": 0.13277534710138839,
+        "rho_margin": -0.07714610058440234,
+        "auroc_error": 0.5569843256059009
+      }
+    }
+  },
+  "dropout_block9": {
+    "module": "transformer.resblocks.9.mlp.c_proj",
+    "ptype": "dropout",
+    "magnitude": 0.01,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.2553667814671259,
+        "rho_margin": -0.08726070104280416,
+        "auroc_error": 0.5751942834562698
+      },
+      "trace_post": {
+        "rho_entropy": 0.178688010752043,
+        "rho_margin": -0.06480697922791691,
+        "auroc_error": 0.5680156743940991
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.039752415009660036,
+        "rho_margin": -0.019777327109308438,
+        "auroc_error": 0.4985840358271865
+      },
+      "norm_var": {
+        "rho_entropy": -0.058480073920295673,
+        "rho_margin": 0.002667274669098676,
+        "auroc_error": 0.4907633034773446
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.178619927643536,
+        "rho_margin": -0.06477571108595757,
+        "auroc_error": 0.5680568361433087
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.09222017688070752,
+        "rho_margin": -0.034845259381037524,
+        "auroc_error": 0.5159213645943098
+      },
+      "effective_rank": {
+        "rho_entropy": 0.02527277309109236,
+        "rho_margin": -0.01968295873183493,
+        "auroc_error": 0.5272655426765016
+      },
+      "spectral_entropy": {
+        "rho_entropy": 0.02326329305317221,
+        "rho_margin": -0.03405335221340885,
+        "auroc_error": 0.5284674657534246
+      },
+      "top1_ratio": {
+        "rho_entropy": -0.021582710330841325,
+        "rho_margin": 0.007714782859131435,
+        "auroc_error": 0.473327186512118
+      }
+    }
+  },
+  "scale_block11": {
+    "module": "transformer.resblocks.11.mlp.c_proj",
+    "ptype": "scale",
+    "magnitude": 0.05,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.27513738854955416,
+        "rho_margin": -0.027643310573242295,
+        "auroc_error": 0.5498551106427819
+      },
+      "trace_post": {
+        "rho_entropy": 0.12487153948615794,
+        "rho_margin": 0.03382419929679718,
+        "auroc_error": 0.5253556375131717
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.20600271201084802,
+        "rho_margin": -0.09213876855507422,
+        "auroc_error": 0.5899466543730242
+      },
+      "norm_var": {
+        "rho_entropy": -0.25616512066048264,
+        "rho_margin": 0.06722119688478755,
+        "auroc_error": 0.4752700210748156
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.12443665090847796,
+        "rho_margin": 0.0342184277907696,
+        "auroc_error": 0.5253721022128557
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.3002635690542762,
+        "rho_margin": -0.13679776319105275,
+        "auroc_error": 0.5965654636459431
+      },
+      "effective_rank": {
+        "rho_entropy": -0.28356785427141706,
+        "rho_margin": 0.16401617606470426,
+        "auroc_error": 0.38902792413066384
+      },
+      "spectral_entropy": {
+        "rho_entropy": -0.3058927435709743,
+        "rho_margin": 0.15767659870639483,
+        "auroc_error": 0.3882705479452055
+      },
+      "top1_ratio": {
+        "rho_entropy": 0.21472444289777157,
+        "rho_margin": -0.17498623594494375,
+        "auroc_error": 0.6079096417281349
+      }
+    }
+  },
+  "uniform_dropout_E": {
+    "module": "all",
+    "ptype": "dropout",
+    "magnitude": 0.01,
+    "metrics": {
+      "trace_pre": {
+        "rho_entropy": 0.29949671798687194,
+        "rho_margin": -0.08337748550994203,
+        "auroc_error": 0.5697609325605901
+      },
+      "trace_post": {
+        "rho_entropy": 0.2145134340537362,
+        "rho_margin": -0.061238740954963816,
+        "auroc_error": 0.5598327186512118
+      },
+      "max_dim_var": {
+        "rho_entropy": 0.09237771351085404,
+        "rho_margin": 0.021585206340825364,
+        "auroc_error": 0.5246641201264489
+      },
+      "norm_var": {
+        "rho_entropy": 0.04073373093492374,
+        "rho_margin": 0.025907815631262522,
+        "auroc_error": 0.5235774499473129
+      },
+      "mean_cosine_dev": {
+        "rho_entropy": 0.2144926122660947,
+        "rho_margin": -0.06120403975395299,
+        "auroc_error": 0.5598162539515279
+      },
+      "top_eigenvalue": {
+        "rho_entropy": 0.10300025200100799,
+        "rho_margin": -0.008338689354757418,
+        "auroc_error": 0.5198070337197049
+      },
+      "effective_rank": {
+        "rho_entropy": 0.07513220452881811,
+        "rho_margin": -0.060863571454285816,
+        "auroc_error": 0.5299986828240253
+      },
+      "spectral_entropy": {
+        "rho_entropy": 0.06172104688418753,
+        "rho_margin": -0.06407987231948928,
+        "auroc_error": 0.530179794520548
+      },
+      "top1_ratio": {
+        "rho_entropy": -0.07874498697994792,
+        "rho_margin": 0.05523516494065976,
+        "auroc_error": 0.47634022655426767
+      }
+    }
+  }
+}

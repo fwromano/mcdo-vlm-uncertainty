@@ -19,6 +19,7 @@ class PhaseTwoResumeCliTests(unittest.TestCase):
         combined = proc.stdout + proc.stderr
         self.assertEqual(proc.returncode, 0, msg=combined)
         self.assertIn("--exp1-resume", combined)
+        self.assertIn("--exp1-live-progress", combined)
 
 
 if __name__ == "__main__":

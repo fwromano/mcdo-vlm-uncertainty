@@ -38,6 +38,12 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Resume Exp1 from partial checkpoints when available",
     )
+    parser.add_argument(
+        "--exp1-live-progress",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show per-pass progress bars for Exp1",
+    )
 
     parser.add_argument("--exp2-models", type=str, default="clip_b32,siglip2_so400m")
     parser.add_argument("--exp2-num-natural", type=int, default=10)
@@ -138,6 +144,7 @@ def main() -> None:
                     "--save-every",
                     str(args.save_every),
                     "--resume" if args.exp1_resume else "--no-resume",
+                    "--live-progress" if args.exp1_live_progress else "--no-live-progress",
                 ]
             )
             continue

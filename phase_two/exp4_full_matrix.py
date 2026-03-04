@@ -91,12 +91,20 @@ def main() -> None:
             set_all_seeds(args.seed + trial_idx)
             cfg = configure_dropout(vlm, dropout_type="E", p=args.dropout)
             wrapped = max(wrapped, cfg.wrapped_modules)
+            seed_val = args.seed + trial_idx
+            feat_dir = model_out / "features"
             trial = run_mc_trial(
                 vlm=vlm,
                 loader=loader,
                 passes=args.passes,
                 collect_pass_features=True,
                 compute_angular=True,
+                feature_save_path=str(feat_dir / f"trial{trial_idx}_seed{seed_val}"),
+                trial_metadata={
+                    "model": model_key, "dropout_type": "E",
+                    "dropout_p": args.dropout, "seed": seed_val,
+                    "trial_idx": trial_idx,
+                },
             )
             trace_trials.append(trial["trace_pre"].numpy())
             angular_trials.append(trial["angular_var"].numpy())

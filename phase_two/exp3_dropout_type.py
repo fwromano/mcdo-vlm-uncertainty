@@ -128,12 +128,20 @@ def main() -> None:
                 selected_paths = cfg.selected_paths
                 notes = cfg.notes
 
+                seed_val = args.seed + 10_000 * trial_idx + ord(d_type)
+                feat_dir = model_out / "features"
                 trial = run_mc_trial(
                     vlm=vlm,
                     loader=loader,
                     passes=args.passes,
                     collect_pass_features=True,
                     compute_angular=True,
+                    feature_save_path=str(feat_dir / f"type{d_type}_trial{trial_idx}_seed{seed_val}"),
+                    trial_metadata={
+                        "model": model_key, "dropout_type": d_type,
+                        "dropout_p": args.dropout, "seed": seed_val,
+                        "trial_idx": trial_idx,
+                    },
                 )
                 trial_trace.append(trial["trace_pre"].numpy())
                 trial_angular.append(trial["angular_var"].numpy())

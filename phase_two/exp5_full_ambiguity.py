@@ -150,7 +150,15 @@ def _uncertainty_from_trials(
     for trial_idx in range(trials):
         set_all_seeds(seed + trial_idx)
         configure_dropout(vlm, dropout_type="E", p=dropout)
-        trial = run_mc_trial(vlm=vlm, loader=loader, passes=passes, collect_pass_features=False)
+        feat_path = partial_npz_path.replace("_partial.npz", f"_features_trial{trial_idx}") if partial_npz_path else ""
+        trial = run_mc_trial(
+            vlm=vlm, loader=loader, passes=passes, collect_pass_features=False,
+            feature_save_path=feat_path or None,
+            trial_metadata={
+                "dropout_p": dropout, "seed": seed + trial_idx,
+                "trial_idx": trial_idx, "passes": passes,
+            } if feat_path else None,
+        )
         arrs.append(trial["trace_pre"].numpy())
 
         completed = trial_idx + 1

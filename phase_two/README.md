@@ -49,3 +49,4 @@ Each experiment writes:
 - `*.npz` arrays with per-image uncertainty and intermediate targets.
 - Periodic partial checkpoints are enabled by default (`--save-every 1`), including trial-progress JSON files.
 - Exp 1 resumes from `*_partial.npz` by default (`--resume` / `--no-resume`) and uses an output lock to prevent concurrent writers in the same directory.
+- Exp 1 prints trial start/finish and checkpoint-save lines to stdout; use `--no-live-progress` to disable tqdm pass bars.

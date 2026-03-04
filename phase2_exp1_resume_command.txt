@@ -1,0 +1,8 @@
+conda run --no-capture-output -n mcdo python -u -m phase_two.exp1_rank_p \
+  data/raw/imagenet_val outputs/phase_two/exp1_rank_p \
+  --manifest outputs/phase_two/manifest_exp1.json \
+  --models clip_b32,siglip2_so400m \
+  --p-values 0.001,0.005,0.01,0.02,0.05,0.1 \
+  --passes 64 --trials 3 --batch-size 32 --num-workers 0 \
+  --device mps --seed 42 --save-every 1 --resume --live-progress \
+  2>&1 | tee -a outputs/phase_two/exp1_rank_p/exp1_run.log

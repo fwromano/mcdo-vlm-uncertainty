@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import time
 import warnings
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -508,6 +509,67 @@ def precompute_pixel_values(
     return pixel_values, all_paths
 
 
+def save_trial_cache(
+    path: str,
+    pass_pre: torch.Tensor,
+    trace_pre: torch.Tensor,
+    paths: List[str],
+    **metadata: Any,
+) -> None:
+    """Save per-pass features and metadata to disk.
+
+    Creates:
+      {path}.npz       — pass_pre [T,N,D] float32, trace_pre [N] float32
+      {path}.meta.json  — image paths + caller-provided metadata
+    """
+    save_path = Path(path)
+    if save_path.suffix == ".npz":
+        save_path = save_path.with_suffix("")
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    pp = pass_pre.numpy() if isinstance(pass_pre, torch.Tensor) else np.asarray(pass_pre)
+    tp = trace_pre.numpy() if isinstance(trace_pre, torch.Tensor) else np.asarray(trace_pre)
+
+    np.savez_compressed(str(save_path), pass_pre=pp, trace_pre=tp)
+
+    meta: Dict[str, Any] = {
+        "shape": list(pp.shape),
+        "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "num_images": pp.shape[1] if pp.ndim == 3 else len(paths),
+        "passes": pp.shape[0] if pp.ndim == 3 else 0,
+        "feature_dim": pp.shape[2] if pp.ndim == 3 else 0,
+    }
+    for k, v in metadata.items():
+        try:
+            json.dumps(v)
+            meta[k] = v
+        except (TypeError, ValueError):
+            meta[k] = str(v)
+    meta["paths"] = [str(p) for p in paths]
+
+    meta_path = save_path.with_suffix(".meta.json")
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+    size_mb = save_path.with_suffix(".npz").stat().st_size / (1024 * 1024)
+    print(f"  [cache] {pp.shape} -> {save_path.with_suffix('.npz').name} ({size_mb:.1f} MB)")
+
+
+def load_trial_cache(path: str) -> Dict[str, Any]:
+    """Load cached trial features from disk."""
+    load_path = Path(path)
+    npz_path = load_path.with_suffix(".npz") if load_path.suffix != ".npz" else load_path
+    data = np.load(str(npz_path))
+    result: Dict[str, Any] = {k: data[k] for k in data.files}
+
+    meta_path = npz_path.with_suffix(".meta.json")
+    if meta_path.exists():
+        with open(meta_path) as f:
+            result["metadata"] = json.load(f)
+
+    return result
+
+
 def run_mc_trial(
     vlm: VisionLanguageModel,
     loader: DataLoader,
@@ -521,7 +583,10 @@ def run_mc_trial(
     use_precomputed_pixels: bool = True,
     cache_precomputed_pixels: bool = True,
     precompute_to_device: bool = True,
+    feature_save_path: Optional[str] = None,
+    trial_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    _collect = collect_pass_features or (feature_save_path is not None)
     num_samples = len(loader.dataset)
     batch_size = int(loader.batch_size) if isinstance(loader.batch_size, int) and loader.batch_size > 0 else num_samples
 
@@ -588,7 +653,7 @@ def run_mc_trial(
                     sq_pre = torch.zeros_like(sum_pre)
                     sum_post = torch.zeros_like(sum_pre)
                     sq_post = torch.zeros_like(sum_pre)
-                    if collect_pass_features:
+                    if _collect:
                         pass_pre = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
                         pass_post = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
 
@@ -597,7 +662,7 @@ def run_mc_trial(
                 sum_post[offset : offset + bsz] += post
                 sq_post[offset : offset + bsz] += post * post
 
-                if collect_pass_features:
+                if _collect:
                     pass_pre[pass_idx, offset : offset + bsz] = pre.float()
                     pass_post[pass_idx, offset : offset + bsz] = post.float()
             continue
@@ -617,7 +682,7 @@ def run_mc_trial(
                 sq_pre = torch.zeros_like(sum_pre)
                 sum_post = torch.zeros_like(sum_pre)
                 sq_post = torch.zeros_like(sum_pre)
-                if collect_pass_features:
+                if _collect:
                     pass_pre = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
                     pass_post = torch.zeros((passes, num_samples, dim), dtype=torch.float32)
 
@@ -626,7 +691,7 @@ def run_mc_trial(
             sum_post[offset : offset + bsz] += post
             sq_post[offset : offset + bsz] += post * post
 
-            if collect_pass_features:
+            if _collect:
                 pass_pre[pass_idx, offset : offset + bsz] = pre.float()
                 pass_post[pass_idx, offset : offset + bsz] = post.float()
 
@@ -661,6 +726,15 @@ def run_mc_trial(
     if collect_pass_features:
         out["pass_pre"] = pass_pre
         out["pass_post"] = pass_post
+
+    if feature_save_path is not None and pass_pre is not None:
+        save_trial_cache(
+            feature_save_path,
+            pass_pre=pass_pre,
+            trace_pre=trace_pre,
+            paths=path_order,
+            **(trial_metadata or {}),
+        )
 
     if compute_angular:
         if pass_post is None:

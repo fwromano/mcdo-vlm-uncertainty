@@ -1,0 +1,140 @@
+"""General perturbation framework for uncertainty estimation.
+
+Extends beyond dropout to support multiple stochastic perturbation types,
+enabling a principled search over the space of possible perturbation strategies.
+
+Perturbation types:
+  dropout     — Standard Bernoulli dropout: zero neurons with probability p.
+  gaussian    — Additive Gaussian noise: out + N(0, (mag * out.std())^2).
+                Scaled relative to layer output so magnitude is comparable
+                across layers with different activation scales.
+  scale       — Multiplicative noise: out * (1 + N(0, mag^2)).
+                Tests whether the model is sensitive to relative magnitudes.
+"""
+from __future__ import annotations
+
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Optional, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from phase_one.common import LinearDropoutWrapper
+
+PERTURBATION_TYPES = {"dropout", "gaussian", "scale"}
+
+
+class PerturbationWrapper(nn.Module):
+    """Wraps a linear layer with a configurable stochastic perturbation."""
+
+    def __init__(self, linear: nn.Linear, ptype: str, magnitude: float) -> None:
+        if ptype not in PERTURBATION_TYPES:
+            raise ValueError(f"Unknown perturbation type '{ptype}'; choose from {sorted(PERTURBATION_TYPES)}")
+        super().__init__()
+        self.linear = linear
+        self.ptype = ptype
+        self.magnitude = magnitude
+
+    def forward(self, *args: Any, **kwargs: Any) -> torch.Tensor:
+        out = self.linear(*args, **kwargs)
+        if not self.training or self.magnitude <= 0:
+            return out
+
+        if self.ptype == "dropout":
+            return F.dropout(out, p=self.magnitude, training=True)
+        elif self.ptype == "gaussian":
+            noise_std = self.magnitude * out.detach().std().clamp(min=1e-12)
+            return out + torch.randn_like(out) * noise_std
+        elif self.ptype == "scale":
+            return out * (1.0 + torch.randn_like(out) * self.magnitude)
+
+        raise RuntimeError(f"Unhandled perturbation type: {self.ptype}")
+
+    @property
+    def weight(self) -> torch.Tensor:
+        return self.linear.weight
+
+    @property
+    def bias(self) -> Optional[torch.Tensor]:
+        return self.linear.bias
+
+    @property
+    def in_features(self) -> int:
+        return self.linear.in_features
+
+    @property
+    def out_features(self) -> int:
+        return self.linear.out_features
+
+
+# ── Module manipulation helpers ──────────────────────────────────────
+
+
+def _replace_module(root: nn.Module, path: str, new: nn.Module) -> None:
+    parent_path, _, leaf = path.rpartition(".")
+    parent = root.get_submodule(parent_path) if parent_path else root
+    setattr(parent, leaf, new)
+
+
+def _unwrap_linear(module: nn.Module) -> nn.Linear:
+    """Get the underlying nn.Linear from any wrapper."""
+    if isinstance(module, nn.Linear):
+        return module
+    if isinstance(module, (PerturbationWrapper, LinearDropoutWrapper)):
+        return _unwrap_linear(module.linear)
+    raise TypeError(f"Cannot unwrap {type(module).__name__} to nn.Linear")
+
+
+def named_linears(root: nn.Module) -> List[Tuple[str, nn.Linear]]:
+    """List all linear modules (unwrapping wrappers) with their paths."""
+    out: List[Tuple[str, nn.Linear]] = []
+    for name, module in root.named_modules():
+        if not name:
+            continue
+        if isinstance(module, (nn.Linear, PerturbationWrapper, LinearDropoutWrapper)):
+            out.append((name, _unwrap_linear(module)))
+    return out
+
+
+def disable_all_perturbation(root: nn.Module) -> None:
+    """Set all perturbation/dropout wrappers to eval mode (pass-through)."""
+    for module in root.modules():
+        if isinstance(module, (PerturbationWrapper, LinearDropoutWrapper)):
+            module.eval()
+        elif isinstance(module, nn.Dropout):
+            module.eval()
+
+
+@contextmanager
+def perturb_modules(
+    root: nn.Module,
+    configs: List[Tuple[str, str, float]],
+) -> Iterator[List[PerturbationWrapper]]:
+    """Context manager: temporarily apply perturbation to specific modules.
+
+    Args:
+        root: Model root module (e.g., vlm.vision_root)
+        configs: List of (module_path, perturbation_type, magnitude)
+
+    Yields:
+        List of PerturbationWrapper instances (in training mode)
+
+    On exit, restores the original modules.
+    """
+    originals: List[Tuple[str, nn.Module]] = []
+    wrappers: List[PerturbationWrapper] = []
+
+    try:
+        for path, ptype, mag in configs:
+            module = root.get_submodule(path)
+            originals.append((path, module))
+            linear = _unwrap_linear(module)
+            wrapper = PerturbationWrapper(linear, ptype, mag)
+            wrapper.train(True)
+            _replace_module(root, path, wrapper)
+            wrappers.append(wrapper)
+        yield wrappers
+    finally:
+        for path, orig in originals:
+            _replace_module(root, path, orig)

@@ -33,6 +33,7 @@ from phase_one.common import (
     sample_paths,
     save_json,
     save_manifest,
+    save_trial_cache,
     set_all_seeds,
     set_dropout_mode,
     should_save_checkpoint,
@@ -108,6 +109,8 @@ def nested_mc_means(
     seed: int,
     progress: bool = False,
     progress_desc: str = "",
+    feature_save_path: Optional[str] = None,
+    trial_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[int, torch.Tensor]:
     """Run T_max MC passes, snapshot the running mean at each T in snapshot_Ts.
 
@@ -123,9 +126,11 @@ def nested_mc_means(
     snapshots: Dict[int, torch.Tensor] = {}
 
     sum_pre: Optional[torch.Tensor] = None
+    all_passes: Optional[torch.Tensor] = None
 
-    pixel_values, _ = precompute_pixel_values(vlm, loader, to_device=True)
+    pixel_values, path_order = precompute_pixel_values(vlm, loader, to_device=True)
     batch_size = int(loader.batch_size) if isinstance(loader.batch_size, int) and loader.batch_size > 0 else len(loader.dataset)
+    N = pixel_values.shape[0]
 
     pass_iter: Any = range(T_max)
     if progress:
@@ -137,7 +142,7 @@ def nested_mc_means(
 
     for pass_idx in pass_iter:
         parts = []
-        for offset in range(0, pixel_values.shape[0], batch_size):
+        for offset in range(0, N, batch_size):
             batch = pixel_values[offset : offset + batch_size]
             feats = vlm.encode_pixel_values(batch, normalize=False).detach().cpu().to(torch.float64)
             parts.append(feats)
@@ -145,8 +150,13 @@ def nested_mc_means(
 
         if sum_pre is None:
             sum_pre = torch.zeros_like(pre)
+            if feature_save_path is not None:
+                all_passes = torch.zeros((T_max, N, pre.shape[1]), dtype=torch.float32)
 
         sum_pre += pre
+
+        if all_passes is not None:
+            all_passes[pass_idx] = pre.float()
 
         T_done = pass_idx + 1
         if snap_idx < len(sorted_Ts) and T_done == sorted_Ts[snap_idx]:
@@ -155,6 +165,20 @@ def nested_mc_means(
 
     if progress and hasattr(pass_iter, "close"):
         pass_iter.close()
+
+    if feature_save_path is not None and all_passes is not None:
+        fp64 = all_passes.to(torch.float64)
+        mean_pre = fp64.mean(dim=0)
+        var_pre = (fp64 ** 2).mean(dim=0) - mean_pre ** 2
+        D = var_pre.shape[-1]
+        trace_pre = (var_pre.sum(dim=-1) / D).float()
+        save_trial_cache(
+            feature_save_path,
+            pass_pre=all_passes,
+            trace_pre=trace_pre,
+            paths=path_order,
+            **(trial_metadata or {}),
+        )
 
     return snapshots
 
@@ -197,10 +221,16 @@ def main() -> None:
             print(f"[Exp6] {model_key} | trial {trial_idx + 1}/{args.trials}")
             seed = args.seed + 100_000 * trial_idx
 
+            feat_dir = model_out / "features"
             snapshots = nested_mc_means(
                 vlm, loader, T_max, passes_list, args.dropout, seed,
                 progress=show_progress,
                 progress_desc=f"Exp6 {model_key} trial {trial_idx + 1}/{args.trials}",
+                feature_save_path=str(feat_dir / f"trial{trial_idx}_seed{seed}"),
+                trial_metadata={
+                    "model": model_key, "dropout_p": args.dropout,
+                    "seed": seed, "trial_idx": trial_idx, "T_max": T_max,
+                },
             )
 
             for T in passes_list:
