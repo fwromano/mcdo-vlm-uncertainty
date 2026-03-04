@@ -48,6 +48,12 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         open_clip_model="ViT-L-14",
         open_clip_pretrained="openai",
     ),
+    "pe_core_b16": ModelSpec(
+        key="pe_core_b16",
+        backend="open_clip",
+        open_clip_model="PE-Core-B-16",
+        open_clip_pretrained="meta",
+    ),
     "siglip2_b16": ModelSpec(
         key="siglip2_b16",
         backend="open_clip",

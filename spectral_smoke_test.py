@@ -32,73 +32,9 @@ from phase_one.common import (
     set_all_seeds,
     spearman_safe,
 )
+from phase_two.metrics import compute_all_metrics
 
 TEMPLATES = ["a photo of a {}", "a {}", "an image of a {}"]
-
-
-# ── Spectral metric computation ──────────────────────────────────────────
-
-def compute_all_metrics(pass_pre: torch.Tensor, pass_post: torch.Tensor) -> dict:
-    """Compute all candidate uncertainty metrics from per-pass features.
-
-    Args:
-        pass_pre:  (T, N, D) raw features per pass
-        pass_post: (T, N, D) L2-normalised features per pass
-
-    Returns:
-        dict  metric_name -> (N,) numpy array
-    """
-    T, N, D = pass_pre.shape
-    centered = pass_pre - pass_pre.mean(dim=0, keepdim=True)
-    var_pre = pass_pre.var(dim=0)  # (N, D)
-
-    metrics = {}
-
-    # ── baselines ──
-    metrics["trace_pre"] = (var_pre.sum(dim=1) / D).numpy()
-
-    var_post = pass_post.var(dim=0)
-    metrics["trace_post"] = (var_post.sum(dim=1) / D).numpy()
-
-    metrics["max_dim_var"] = var_pre.max(dim=1).values.numpy()
-    metrics["norm_var"] = pass_pre.norm(dim=2).var(dim=0).numpy()
-
-    mean_dir = F.normalize(pass_post.mean(dim=0), dim=-1)
-    cos_sims = (pass_post * mean_dir.unsqueeze(0)).sum(dim=-1)
-    metrics["mean_cosine_dev"] = (1.0 - cos_sims.mean(dim=0)).numpy()
-
-    # ── eigenvalue-based (via T×T Gram trick) ──
-    eff_rank = np.zeros(N)
-    spec_entropy = np.zeros(N)
-    top1_ratio = np.zeros(N)
-    top_eig = np.zeros(N)
-
-    for i in range(N):
-        X = centered[:, i, :]       # (T, D)
-        G = X @ X.T / (T - 1)       # (T, T)
-        eigs = torch.linalg.eigvalsh(G).clamp_min(0)  # ascending
-
-        total = eigs.sum().item()
-        if total < 1e-15:
-            continue
-
-        top_eig[i] = eigs[-1].item()
-
-        sum_sq = (eigs**2).sum().item()
-        eff_rank[i] = (total**2) / sum_sq
-
-        p = eigs / total
-        p = p[p > 1e-12]
-        spec_entropy[i] = -(p * torch.log(p)).sum().item()
-
-        top1_ratio[i] = eigs[-1].item() / total
-
-    metrics["top_eigenvalue"] = top_eig
-    metrics["effective_rank"] = eff_rank
-    metrics["spectral_entropy"] = spec_entropy
-    metrics["top1_ratio"] = top1_ratio
-
-    return metrics
 
 
 # ── Statistical helpers ──────────────────────────────────────────────────

@@ -32,8 +32,9 @@ from phase_one.common import (
     set_all_seeds,
     spearman_safe,
 )
+from phase_two.ablation import DEGRADATIONS, DegradedImageDataset
+from phase_two.metrics import compute_all_metrics
 from phase_two.perturbation import disable_all_perturbation, perturb_modules
-from spectral_smoke_test import compute_all_metrics
 
 TEMPLATES = ["a photo of a {}", "a {}", "an image of a {}"]
 

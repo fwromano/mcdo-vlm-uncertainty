@@ -18,12 +18,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image, ImageFilter
 from scipy.stats import wilcoxon
 from torch.utils.data import DataLoader
 
 from phase_one.common import (
-    ImagePathDataset,
     build_loader,
     detect_best_device,
     list_images,
@@ -33,38 +31,8 @@ from phase_one.common import (
     sample_paths,
     set_all_seeds,
 )
-from spectral_smoke_test import compute_all_metrics
-
-
-# ── Degradation functions ────────────────────────────────────────────────
-
-class DegradedImageDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, degrade_fn):
-        self.image_paths = [str(Path(p)) for p in image_paths]
-        self.degrade_fn = degrade_fn
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def __getitem__(self, idx):
-        path = self.image_paths[idx]
-        with Image.open(path) as img:
-            image = img.convert("RGB")
-        degraded = self.degrade_fn(image)
-        class_name = Path(path).parent.name
-        return degraded, path, class_name
-
-
-DEGRADATIONS = {
-    "blur_r5": lambda img: img.filter(ImageFilter.GaussianBlur(radius=5)),
-    "blur_r15": lambda img: img.filter(ImageFilter.GaussianBlur(radius=15)),
-    "downsample_4x": lambda img: img.resize(
-        (max(img.width // 4, 1), max(img.height // 4, 1)), Image.BILINEAR
-    ).resize((img.width, img.height), Image.BILINEAR),
-    "downsample_8x": lambda img: img.resize(
-        (max(img.width // 8, 1), max(img.height // 8, 1)), Image.BILINEAR
-    ).resize((img.width, img.height), Image.BILINEAR),
-}
+from phase_two.ablation import DEGRADATIONS, DegradedImageDataset
+from phase_two.metrics import compute_all_metrics
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────

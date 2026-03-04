@@ -1,0 +1,64 @@
+{
+  "all_fc2_dropout_p01": {
+    "ablation": {
+      "clean_mean": 0.005281221587210894,
+      "blur_r5": {
+        "frac_increased": 0.55,
+        "mean_diff": 0.00012510226224549115,
+        "median_diff": 0.00010205351281911135,
+        "rel_change_pct": 2.368803607546447,
+        "wilcoxon_p_greater": 0.014075782150030136,
+        "wilcoxon_p_two_sided": 0.028151564300060272,
+        "clean_mean": 0.005281221587210894,
+        "degraded_mean": 0.005406323354691267
+      },
+      "downsample_8x": {
+        "frac_increased": 0.388,
+        "mean_diff": -0.00033968593925237656,
+        "median_diff": -0.00027639977633953094,
+        "rel_change_pct": -6.431957713627591,
+        "wilcoxon_p_greater": 1.0,
+        "wilcoxon_p_two_sided": 2.8719293609924534e-09,
+        "clean_mean": 0.005281221587210894,
+        "degraded_mean": 0.004941535647958517
+      }
+    },
+    "reliability_spearman": 0.8186412585650342,
+    "reliability_rhos": [
+      0.8145936903747615,
+      0.8436734546938187,
+      0.8186412585650342
+    ]
+  },
+  "uniform_dropout_p01": {
+    "ablation": {
+      "clean_mean": 0.04594580456614494,
+      "blur_r5": {
+        "frac_increased": 0.25,
+        "mean_diff": -0.002332158386707306,
+        "median_diff": -0.0019800420850515366,
+        "rel_change_pct": -5.075889754743247,
+        "wilcoxon_p_greater": 1.0,
+        "wilcoxon_p_two_sided": 1.8386539164934128e-37,
+        "clean_mean": 0.04594580456614494,
+        "degraded_mean": 0.04361364617943764
+      },
+      "downsample_8x": {
+        "frac_increased": 0.328,
+        "mean_diff": -0.0018483017338439822,
+        "median_diff": -0.001315707340836525,
+        "rel_change_pct": -4.0227809127397345,
+        "wilcoxon_p_greater": 1.0,
+        "wilcoxon_p_two_sided": 8.625893347923566e-22,
+        "clean_mean": 0.04594580456614494,
+        "degraded_mean": 0.04409750550985336
+      }
+    },
+    "reliability_spearman": 0.7977328549314195,
+    "reliability_rhos": [
+      0.7977328549314195,
+      0.7925505622022487,
+      0.8007275869103477
+    ]
+  }
+}

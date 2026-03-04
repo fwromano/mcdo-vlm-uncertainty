@@ -16,8 +16,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image, ImageFilter
-from scipy.stats import wilcoxon
 from torch.utils.data import DataLoader
 
 from phase_one.common import (
@@ -30,6 +28,7 @@ from phase_one.common import (
     sample_paths,
     set_all_seeds,
 )
+from phase_two.ablation import DEGRADATIONS, DegradedImageDataset, paired_comparison
 
 
 # ── Residual stream perturbation via hooks ────────────────────────────────
@@ -88,33 +87,6 @@ class ResidualPerturbation:
         self.vision_root.eval()
 
 
-# ── Degradation ───────────────────────────────────────────────────────────
-
-class DegradedImageDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, degrade_fn):
-        self.image_paths = [str(Path(p)) for p in image_paths]
-        self.degrade_fn = degrade_fn
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def __getitem__(self, idx):
-        path = self.image_paths[idx]
-        with Image.open(path) as img:
-            image = img.convert("RGB")
-        degraded = self.degrade_fn(image)
-        class_name = Path(path).parent.name
-        return degraded, path, class_name
-
-
-DEGRADATIONS = {
-    "blur_r5": lambda img: img.filter(ImageFilter.GaussianBlur(radius=5)),
-    "downsample_8x": lambda img: img.resize(
-        (max(img.width // 8, 1), max(img.height // 8, 1)), Image.BILINEAR
-    ).resize((img.width, img.height), Image.BILINEAR),
-}
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 def run_mc_residual(vlm, loader, block_indices, magnitude, passes):
@@ -128,25 +100,6 @@ def run_mc_residual(vlm, loader, block_indices, magnitude, passes):
             cache_precomputed_pixels=False,
         )
     return trial["trace_pre"].numpy()
-
-
-def paired_comparison(clean_unc, deg_unc):
-    diff = deg_unc - clean_unc
-    frac_increased = float((diff > 0).mean())
-    try:
-        _, p_greater = wilcoxon(deg_unc, clean_unc, alternative="greater")
-    except ValueError:
-        p_greater = 1.0
-    clean_mean = float(clean_unc.mean())
-    deg_mean = float(deg_unc.mean())
-    rel_change = (deg_mean - clean_mean) / clean_mean * 100 if abs(clean_mean) > 1e-15 else 0.0
-    return {
-        "frac_increased": frac_increased,
-        "rel_change_pct": rel_change,
-        "wilcoxon_p_greater": float(p_greater),
-        "clean_mean": clean_mean,
-        "degraded_mean": deg_mean,
-    }
 
 
 def main():

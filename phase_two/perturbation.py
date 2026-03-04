@@ -97,6 +97,45 @@ def named_linears(root: nn.Module) -> List[Tuple[str, nn.Linear]]:
     return out
 
 
+def get_mlp_output_projections(root: nn.Module) -> List[str]:
+    """Return module paths for every MLP output projection in a ViT vision encoder.
+
+    Works across naming conventions:
+      CLIP (open_clip):  transformer.resblocks.N.mlp.c_proj  (3072 -> 768)
+      timm / PE-Core:    trunk.blocks.N.mlp.fc2              (3072 -> 768)
+
+    Strategy: group Linear children by parent, find pairs where the first
+    expands (in < out) and the second contracts (in > out). The contracting
+    one is the output projection. Only considers parents inside transformer
+    block lists (paths containing 'resblocks' or 'blocks').
+    """
+    from collections import defaultdict
+
+    parent_linears: dict[str, list[tuple[str, nn.Linear]]] = defaultdict(list)
+    for name, module in root.named_modules():
+        if isinstance(module, (nn.Linear, PerturbationWrapper, LinearDropoutWrapper)):
+            linear = _unwrap_linear(module)
+            parent = name.rsplit(".", 1)[0] if "." in name else ""
+            parent_linears[parent].append((name, linear))
+
+    out_projs: List[str] = []
+    for parent, linears in sorted(parent_linears.items()):
+        # Only transformer block MLPs, not attn_pool, head, etc.
+        if "resblocks" not in parent and "blocks" not in parent:
+            continue
+        # Skip attention parents (contain 'attn' but not 'mlp')
+        if "attn" in parent and "mlp" not in parent:
+            continue
+        if len(linears) != 2:
+            continue
+        (_, m1), (n2, m2) = linears
+        # First linear expands, second contracts -> second is output projection
+        if m1.out_features > m1.in_features and m2.in_features > m2.out_features:
+            out_projs.append(n2)
+
+    return out_projs
+
+
 def disable_all_perturbation(root: nn.Module) -> None:
     """Set all perturbation/dropout wrappers to eval mode (pass-through)."""
     for module in root.modules():

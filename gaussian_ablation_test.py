@@ -17,12 +17,9 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image, ImageFilter
-from scipy.stats import wilcoxon
 from torch.utils.data import DataLoader
 
 from phase_one.common import (
-    ImagePathDataset,
     build_loader,
     detect_best_device,
     list_images,
@@ -32,38 +29,8 @@ from phase_one.common import (
     sample_paths,
     set_all_seeds,
 )
+from phase_two.ablation import DEGRADATIONS, DegradedImageDataset, paired_comparison
 from phase_two.perturbation import disable_all_perturbation, perturb_modules
-
-
-# ── Degradation functions ────────────────────────────────────────────────
-
-class DegradedImageDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, degrade_fn):
-        self.image_paths = [str(Path(p)) for p in image_paths]
-        self.degrade_fn = degrade_fn
-
-    def __len__(self):
-        return len(self.image_paths)
-
-    def __getitem__(self, idx):
-        path = self.image_paths[idx]
-        with Image.open(path) as img:
-            image = img.convert("RGB")
-        degraded = self.degrade_fn(image)
-        class_name = Path(path).parent.name
-        return degraded, path, class_name
-
-
-DEGRADATIONS = {
-    "blur_r5": lambda img: img.filter(ImageFilter.GaussianBlur(radius=5)),
-    "blur_r15": lambda img: img.filter(ImageFilter.GaussianBlur(radius=15)),
-    "downsample_4x": lambda img: img.resize(
-        (max(img.width // 4, 1), max(img.height // 4, 1)), Image.BILINEAR
-    ).resize((img.width, img.height), Image.BILINEAR),
-    "downsample_8x": lambda img: img.resize(
-        (max(img.width // 8, 1), max(img.height // 8, 1)), Image.BILINEAR
-    ).resize((img.width, img.height), Image.BILINEAR),
-}
 
 
 # ── Perturbation configs to test ─────────────────────────────────────────
@@ -114,39 +81,6 @@ def run_mc_for_config(vlm, loader, config, passes):
     return trial["trace_pre"].numpy()
 
 
-def paired_comparison(clean_unc, deg_unc, deg_name):
-    """Paired test: does degradation increase uncertainty?"""
-    diff = deg_unc - clean_unc
-    frac_increased = float((diff > 0).mean())
-    mean_diff = float(diff.mean())
-    median_diff = float(np.median(diff))
-
-    try:
-        _, p_greater = wilcoxon(deg_unc, clean_unc, alternative="greater")
-    except ValueError:
-        p_greater = 1.0
-
-    try:
-        _, p_two = wilcoxon(deg_unc, clean_unc, alternative="two-sided")
-    except ValueError:
-        p_two = 1.0
-
-    clean_mean = float(clean_unc.mean())
-    deg_mean = float(deg_unc.mean())
-    rel_change = (deg_mean - clean_mean) / clean_mean * 100 if abs(clean_mean) > 1e-15 else 0.0
-
-    return {
-        "frac_increased": frac_increased,
-        "mean_diff": mean_diff,
-        "median_diff": median_diff,
-        "rel_change_pct": rel_change,
-        "wilcoxon_p_greater": float(p_greater),
-        "wilcoxon_p_two_sided": float(p_two),
-        "clean_mean": clean_mean,
-        "degraded_mean": deg_mean,
-    }
-
-
 def main():
     t0 = time.time()
     device = detect_best_device()
@@ -189,7 +123,7 @@ def main():
             set_all_seeds(42)
             deg_unc = run_mc_for_config(vlm, loader_deg, config, T)
 
-            comp = paired_comparison(clean_unc, deg_unc, deg_name)
+            comp = paired_comparison(clean_unc, deg_unc)
             cfg_results["degradations"][deg_name] = comp
 
             sig = "***" if comp["wilcoxon_p_greater"] < 0.001 else \
