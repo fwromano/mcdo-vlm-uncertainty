@@ -108,14 +108,15 @@
 
 ## Repo Layout
 - `src/mcdo_clip/`: library code for CLIP loading, dropout toggling, MC sampling, and complexity metrics.
-- `scripts/`: CLIs for core experiments.
-  - `run_rank_stability.py`: Exp 1 (Spearman matrix across dropout rates).
-  - `run_complexity_correlation.py`: Exp 2 (complexity metrics vs. MC variance).
-  - `run_trivial_baseline.py`: Exp 3 (solid/gradient/noise vs. natural).
-  - `run_resolution_effect.py`: Exp 4 (downsample/upsample variants).
-  - `run_error_correlation.py`: Exp 5 (variance vs. zero-shot accuracy on ImageFolder data).
+- `phase_one/` / `phase_two/` / `phase_three/` / `phase_four/`: phased experiment modules (run via `python -m phase_one.run_phase1` etc.).
+- `scripts/`: CLIs for standalone experiments and utilities.
+- `charts/`: visualization scripts (`chart_*.py`) and their PNG outputs.
+- `exploratory/`: preliminary investigations, smoke tests, and ablation scripts.
+- `docs/`: reports, analyses, paper outline, and other documentation.
+- `tests/`: unit and integration tests.
 - `data/`: placeholder for raw/processed assets.
-- `requirements.txt` / `pyproject.toml`: dependency pins.
+- `outputs/`: experiment result artifacts (JSON manifests, logs, etc.).
+- `requirements.txt` / `pyproject.toml` / `environment.yml`: dependency pins.
 
 ## Quickstart
 ```bash

@@ -23,3 +23,8 @@ outputs/smoke_*/
 
 # Build artifacts
 src/*.egg-info/
+*.egg-info/
+
+# Large archives
+ILSVRC2012_img_val.tar
+*.tar
