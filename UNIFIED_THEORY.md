@@ -1,6 +1,6 @@
 # Unified Theory: MC Dropout Uncertainty in Frozen VLMs
 
-**March 5, 2026 — Peer-reviewed synthesis of 25+ experiments across 5 VLMs**
+**March 5, 2026 — Peer-reviewed synthesis of 25+ experiments across 4 VLMs**
 
 This document supersedes `META_ANALYSIS.md`, `KEY_TAKEAWAYS.md`, and the narrative
 sections of `STATE_OF_EXPLORATION_2026_03_04.md`. Every number cited here is either
@@ -26,10 +26,13 @@ the source session noted. For raw data tables, see `STATE_OF_EXPLORATION_2026_03
 | PE-Core blocks 7-9 weighted down=84.4% | pe_core_sweep.json | 0.844 |
 | PE-Core all-12 trace blur=55% | pe_core_exp.json | 0.550 |
 | Exp 3 Type D (block 9) Spearman=0.77 | exp3_overall_summary.json | 0.7706 |
-| Exp 5 rho(entropy)=0.253 | prelim_investigation.json | 0.253 |
+| Prelim rho(entropy)=0.253 | prelim_investigation.json | 0.253 |
 | SigLIP2 rho(centroid_distance)=0.24 | prelim_investigation.json | 0.241 |
 | SigLIP2 blur_r5 frac_increased=0.416 | prelim_ablation.json | 0.416 |
 | SigLIP2 blur_r15 frac_increased=0.244 | prelim_ablation.json | 0.244 |
+| PE-Core blocks 9-11 weighted blur=90.0% | pe_core_block_comparison.json | 0.900 |
+| PE-Core blocks 9-11 weighted down=53.8% | pe_core_block_comparison.json | 0.538 |
+| PE-Core blocks 7-9 weighted blur=94.4% (reproduced) | pe_core_block_comparison.json | 0.944 |
 
 ### Numbers NOT in saved outputs [UNVERIFIED — from prior session transcripts]
 
@@ -41,6 +44,8 @@ the source session noted. For raw data tables, see `STATE_OF_EXPLORATION_2026_03
 | CLIP L/14 c_proj blur_r5=78.2% | Background task in prior session | No JSON artifact |
 | CLIP L/14 Spearman=0.752 | Background task in prior session | No JSON artifact |
 | Uniform T=256 Spearman=0.82 | Background task in prior session | No JSON artifact |
+| CLIP B/32 12-c_proj p=0.05 blur_r5=71.5% | Prior session | No JSON artifact |
+| CLIP B/32 12-c_proj p=0.20 blur_r5=0.5% | Prior session | No JSON artifact |
 
 **Recommendation:** Re-run the 12-c_proj ablation test and L/14 cross-validation with
 output saved to JSON before publishing. These numbers are central to the narrative but
@@ -61,8 +66,11 @@ instead of the intended **blocks 9, 10, 11** for 12-block models.
   7-8-9 instead of 21-22-23. The fix prevents this for future runs.
 
 **Status:** Bug fixed (natural sort key added). PE-Core "late-3" results in this document
-are relabeled as "blocks 7-9" to reflect what was actually tested. A re-run with the true
-last 3 blocks (9-10-11) is queued as a priority experiment.
+are relabeled as "blocks 7-9" to reflect what was actually tested.
+
+**Resolution (2026-03-05):** Head-to-head test confirms blocks 7-9 are BETTER than true
+blocks 9-11 (94.4% vs 90.0% blur, 84.4% vs 53.8% downsample). The sorting bug
+accidentally found the superior config. See `outputs/pe_core_block_comparison.json`.
 
 ### Numbers requiring correction
 
@@ -129,7 +137,7 @@ Image (224×224)
 ┌─────────────────────────────────────────────┐
 │  Vision Encoder (frozen)                    │
 │                                             │
-│  ┌─── Transformer Block (×12 for B/16) ──┐ │
+│  ┌─── Transformer Block (×12 for B/32) ──┐ │
 │  │                                        │ │
 │  │  Self-Attention                        │ │
 │  │    └─ out_proj: 768→768  [DEAD]        │ │
@@ -243,25 +251,33 @@ The key finding for PE-Core is that perturbing a subset of blocks restores valid
 
 | Config | Validity (blur, weighted) | Validity (down, weighted) |
 |--------|--------------------------|--------------------------|
-| PE-Core all-12 fc2 | 69-76% weak/FAIL | 54-64% FAIL |
+| PE-Core all-12 fc2 | 69-75.6% weak/FAIL | 54-64% FAIL |
 | PE-Core blocks 7-9 fc2† | **94.2-94.4% PASS** | **81-84% PASS** |
 
 [pe_core_sweep.json — all numbers verified]
 †Labeled "late-3" in pe_core_sweep.py but actually tested blocks 7-9 due to sorting bug.
 
-### Why it works
+### Why it works — and why the deepest blocks are worse
 
-Transformer blocks form a processing hierarchy:
-- **Early blocks (0-6):** Low-level features (edges, textures). Very robust — dropout here
-  adds noise without probing anything meaningful about classification decisions.
-- **Mid-late blocks (7-9):** Where the tested config operates. These blocks are deep enough
-  to encode semantic/discriminative features but not the absolute final layers.
-- **Final blocks (10-11):** UNTESTED on PE-Core. These may carry even stronger commitment
-  signal — or they may be so specialized that dropout there is too disruptive.
+Head-to-head comparison (N=500, T=64, p=0.01) [pe_core_block_comparison.json]:
 
-The tested result (blocks 7-9 = 94.4%) confirms the **general principle**: excluding
-early blocks dramatically improves validity. The **specific question** — are the absolute
-last blocks (9-11) better or worse than blocks 7-9? — remains open.
+| Config | blur (weighted) | down (weighted) |
+|--------|----------------|----------------|
+| Blocks 7-9 | **94.4% PASS** | **84.4% PASS** |
+| Blocks 9-11 | 90.0% PASS | 53.8% FAIL |
+| All 12 | 75.6% PASS | 64.4% weak |
+
+**The mid-late blocks (7-9) beat the true last blocks (9-11) on every metric.** Blocks
+9-11 even FAIL downsample validity (53.8%) — worse than all-12 (64.4%) for that test.
+
+Transformer blocks form a processing hierarchy, but the "commitment" zone is NOT the
+absolute deepest layers:
+- **Early blocks (0-6):** Low-level features. Too robust for dropout to probe.
+- **Mid-late blocks (7-9):** The **sweet spot**. Deep enough to encode semantic features,
+  but not so specialized that dropout destroys the representation.
+- **Final blocks (10-11):** Too specialized. Dropout here appears to be **too disruptive**
+  — it destroys the representation rather than gently probing redundancy, similar to how
+  high dropout rates (p=0.20) invert the signal on CLIP B/32.
 
 ### Two decoupled axes
 
@@ -269,19 +285,16 @@ Block-subset dropout decouples reliability and validity:
 - **Deterministic early blocks (0-6):** Provide stable perceptual input → reliability.
 - **Stochastic mid-late blocks (7-9):** Probe decision fragility → validity.
 
-### The unverified hypotheses
+### The remaining unverified hypothesis
+
+**Hypothesis 2 resolved:** True last blocks (9-11) are WORSE than blocks 7-9 on PE-Core.
+The sorting bug accidentally found the better config.
 
 **Hypothesis 1 (reliability):** Do blocks 7-9 achieve reliability ≥0.82 (matching all-12)?
 - **Evidence for:** Removing early-block noise should make rankings MORE consistent.
   CLIP B/32 block-9-only (0.77 at N=1000) > all-12-c_proj (0.43 at T=64).
 - **Evidence against:** Fewer perturbed modules = less total variance = potentially lower SNR.
-
-**Hypothesis 2 (block depth):** Are the true last blocks (9-11) better than blocks 7-9?
-- **Unknown.** The sorting bug means we accidentally tested a mid-late range that works well.
-  The intended range might work better (closer to "commitment" layers) or worse (too
-  specialized, dropout too disruptive). Only a head-to-head test will tell.
-
-Both are priority experiments.
+- **Status: STILL UNMEASURED.** This is the #1 remaining experiment.
 
 ### Supporting evidence from CLIP B/32
 
@@ -320,7 +333,7 @@ ambiguous images, candidates disagree (high dropout variance).
 ### Why attention is dead
 
 All 12 attention out_proj layers produce **exactly zero variance** under dropout.
-[Exp 3 Type A: trace_mean ≈ 1e-17, angular_mean = 0.0 — exp3_summary.json]
+[Exp 3 Type A: trace_mean ≈ 9e-17, angular_mean = 0.0 — exp3_summary.json]
 
 Three factors:
 1. **Softmax saturation.** Attention weights are often near [1, 0, 0, ...].
@@ -443,10 +456,11 @@ At high p, dropout overwhelms the representation and measures feature complexity
 (like Gaussian) rather than probing redundancy. The valid measurement exists only
 at very low p where dropout gently "thins the vote" rather than destroying it.
 
-### Quantization noise is Gaussian in disguise
+### Quantization and scale noise are Gaussian in disguise
 
 Randomizing low bits of quantized weights is dense continuous noise (uniform
-distribution). At first order, it computes the same Jacobian. Different
+distribution). Multiplicative scale noise (`out * (1 + N(0, σ²))`) is similarly
+continuous. At first order, both compute the same Jacobian. Different
 distribution, same failure mode.
 
 The **sparsity** and **binary nature** of dropout is load-bearing. It asks "can this
@@ -482,8 +496,9 @@ PERTURBATION TYPE      Sparse binary ablation (dropout) probes
    redundancy correctly.
 
 3. **Layer targeting: Continuous dial.** All-block dropout works for less-robust models
-   (CLIP B/32: 93.6%). Block-subset targeting is needed for robust models (PE-Core:
-   94.4% blocks 7-9 vs 55% all-12). It's a continuum, not pass/fail.
+   (CLIP B/32: 93.6%). Block-subset targeting is needed for robust models (PE-Core
+   weighted_trace_pre: 94.4% blocks 7-9 vs 69-75.6% all-12). It's a continuum, not
+   pass/fail.
 
 4. **Metric: Continuous multiplier.** trace_pre works for B/32 (93.6%). weighted_trace_pre
    is needed for PE-Core downsample (84.4% vs 61.2%). More robust models need it more.
@@ -499,20 +514,25 @@ PERTURBATION TYPE      Sparse binary ablation (dropout) probes
                    │
                    │● B/32 weighted_trace [U] 96.4%
   B/32 c_proj      │● [U] 93.6%
+  PE-Core blks7-9  │● 94.4%  (verified validity, reliability unmeasured)
                    │
   Uniform p=0.01   │  ● 86.8%  (verified)
                    │
           ~75% ----│----------- pass threshold -------
                    │
   L/14 c_proj [U]  │  ● 78.2%
-  L/14 uniform [U] │    ● 71.6%
                    │
-  Gaussian all     │      ● ~60%
+  PE-Core all-12   │    ● 55.0%  (verified)
+                   │
+  SigLIP2          │      ● 41.6%  (verified — INVERTED)
                    │
   Gaussian blk11   │               ● 25.4%  (verified)
                 0% ┴───────┼───────┼───────┼──────── Reliability
                   0.0     0.4    0.75    1.0
 ```
+
+Note: PE-Core blocks 7-9 is plotted without an x-coordinate (reliability unmeasured).
+SigLIP2 reliability (0.96) is from post-norm metric, not directly comparable to others.
 
 ### Scaling T beats down noise
 
@@ -547,11 +567,10 @@ AND high validity (94.4%).
 - 3 modules at p=0.01 means only ~92 neurons dropped per pass (3 × 3072 × 0.01).
   This may not be enough "votes removed" for a stable signal.
 
-**Additional unknown (sorting bug):** The tested blocks (7-9) are in the middle-late
-range, not the absolute last blocks (9-11). Whether the true last blocks are better
-or worse is a separate question from whether block-subset targeting works in general.
+**Resolved:** Blocks 7-9 beat blocks 9-11 in head-to-head (94.4% vs 90.0% blur,
+84.4% vs 53.8% down). The mid-late zone is the sweet spot, not the deepest blocks.
 
-**Status: UNRESOLVED.** Most important open experiment.
+**Remaining unknown:** Does blocks 7-9 achieve high reliability too? Status: UNRESOLVED.
 
 ---
 
@@ -597,9 +616,9 @@ unverified validity (CLIP 12-c_proj) or unmeasured reliability (PE-Core blocks 7
 ### Priority experiments to fill the gaps
 
 1. **PE-Core blocks 7-9 fc2 reliability** (K=5, T=64, N=500): Does the config that
-   achieved 94.4% validity also have high reliability?
-2. **PE-Core true blocks 9-11 fc2** (validity + reliability): Does the intended
-   "last-3" config match or beat blocks 7-9?
+   achieved 94.4% validity also have high reliability? This is the #1 gap.
+2. ~~PE-Core true blocks 9-11 fc2~~ **RESOLVED:** Blocks 9-11 are worse (90.0%/53.8%).
+   Blocks 7-9 confirmed as the superior config.
 3. **Re-run CLIP B/32 12-c_proj ablation with saved JSON output**: Verify the 93.6%
    and 96.4% numbers.
 4. **Re-run CLIP L/14 cross-validation with saved JSON output**: Verify 78.2% and 0.75.
@@ -741,10 +760,9 @@ observation; let the filter smooth. The signal is there, it needs temporal integ
 
 In order of importance:
 
-1. **PE-Core blocks 7-9 vs 9-11 head-to-head** — Re-run pe_core_sweep with the sorting
-   bug fixed. Compare blocks 7-9 (accidentally tested, 94.4%) vs true blocks 9-11 (the
-   intended config, never tested). Also measure reliability (K=5) for both. This resolves
-   three open questions at once. (~60 min)
+1. ~~PE-Core blocks 7-9 vs 9-11 head-to-head~~ **DONE.** Blocks 7-9 win decisively
+   (94.4% vs 90.0% blur, 84.4% vs 53.8% down). Remaining: measure blocks 7-9
+   **reliability** (K=5, T=64). (~30 min)
 
 2. **Re-run key ablations with JSON output** — CLIP B/32 12-c_proj ablation test and
    L/14 cross-validation. These numbers are central but not reproducible from the
@@ -772,6 +790,7 @@ In order of importance:
 - `STATE_OF_EXPLORATION_2026_03_04.md` — Full data tables (mostly correct, unverified #s noted)
 
 ### Verified output files
+- `outputs/pe_core_block_comparison.json` — PE-Core blocks 7-9 vs 9-11 head-to-head
 - `outputs/pe_core_sweep.json` — PE-Core 6-config sweep
 - `outputs/pe_core_exp.json` — PE-Core initial test + reliability
 - `outputs/gaussian_ablation_test.json` — Gaussian vs dropout validity
