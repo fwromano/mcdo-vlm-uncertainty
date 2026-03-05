@@ -767,17 +767,17 @@ Real-time constraint (~30ms budget for uncertainty per frame).
 
 | Parameter | Recommendation | Why |
 |-----------|---------------|-----|
-| **Model** | CLIP B/32 | Smallest (88M params), fastest inference, best-characterized |
-| **Layers** | All 12 c_proj (dropout p=0.01) | Best validity on CLIP (93.6%) |
-| **Metric** | weighted_trace_pre | 96.4%/97.0% validity — best available |
-| **T** | 64 | Fits 10 objects × T=64 = 640 samples in ~1.9GB VRAM |
+| **Model** | PE-Core-B/16 preferred, or CLIP B/32 | PE-Core passes both gates at T=64; CLIP B/32 needs T≥128 |
+| **Layers** | Late-3 fc2 (PE-Core) or all 12 c_proj (CLIP) | Model-specific layer targeting |
+| **Metric** | weighted_trace_pre | 94-97% validity — best available |
+| **T** | 64 (PE-Core) or 128 (CLIP B/32) | Minimum T to pass both reliability AND validity gates |
 | **PCA** | K=32 | 87% ablation validity, 32-dim Kalman state is tractable |
-| **Reliability** | Spearman ≈ 0.43 | Moderate — sufficient for binary "uncertain vs confident" |
+| **Reliability** | PE-Core: 0.82 (T=64), CLIP: 0.58 (T=128) | Both pass reliability gate (>0.5) |
 
-**When to pick this:** You need frame-rate decisions on a single GPU. The reliability
-is moderate (noisy rankings) but the validity is high (blurry/distant objects WILL
-get flagged as more uncertain). For MOT, you care more about "is this detection
-trustworthy?" than "rank all detections precisely."
+**When to pick this:** You need frame-rate decisions on a single GPU. PE-Core-B/16 is
+the strongest option here — 0.82 reliability + 94.4% validity at T=64, passing both
+gates without needing high T. CLIP B/32 requires T≥128 to pass reliability (0.43 at
+T=64 fails our own gate), but remains the best-characterized option.
 
 **Deployment pipeline:**
 ```
