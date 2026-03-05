@@ -13,7 +13,7 @@ see `KEY_TAKEAWAYS.md`.
 | Model | Training Data | Layers Perturbed | Reliability | Validity (blur) |
 |-------|--------------|-----------------|-------------|-----------------|
 | CLIP B/32 | 400M pairs | All 12 c_proj | 0.43 | 93.6% |
-| CLIP B/32 | 400M pairs | Block 9 only | 0.77 | untested |
+| CLIP B/32 | 400M pairs | Block 9 only | 0.77 | untested (Gaussian@block9 was 60% FAIL) |
 | CLIP L/14 | 400M pairs | All 24 c_proj | 0.75 | 78.2% |
 | PE-Core B/16 | 5.4B pairs | All 12 fc2 | 0.82 | 55% |
 | PE-Core B/16 | 5.4B pairs | Late 3 fc2 | 0.82 | 94.4% |
@@ -169,7 +169,15 @@ telescope**, the late blocks are the **measurement instrument**.
 CLIP B/32 with late-3 c_proj should give ~0.65-0.75 reliability + ~90-93% validity.
 The same principle that rescued PE-Core should improve CLIP B/32. We have partial
 evidence: single-block-9 gives 0.77 reliability, suggesting late-block targeting
-works on CLIP too. Ablation validity for this config is untested.
+works on CLIP too.
+
+**Caveat:** Single-block Gaussian@block9 FAILED validity (60%). Gaussian and dropout
+measure different quantities (Jacobian vs redundancy), so this doesn't prove single-
+block dropout would also fail — but it's a warning. The PE-Core rescue used 3 blocks,
+not 1. There may be a minimum number of perturbed blocks needed for the "vote thinning"
+mechanism to produce valid signal. One block might not be enough dropout to probe
+redundancy; it might just measure that single layer's sensitivity (more like Gaussian).
+Testing CLIP B/32 late-3 would resolve this.
 
 ---
 

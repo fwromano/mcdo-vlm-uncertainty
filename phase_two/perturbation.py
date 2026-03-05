@@ -13,6 +13,7 @@ Perturbation types:
 """
 from __future__ import annotations
 
+import re
 from contextlib import contextmanager
 from typing import Any, Iterator, List, Optional, Tuple
 
@@ -118,8 +119,12 @@ def get_mlp_output_projections(root: nn.Module) -> List[str]:
             parent = name.rsplit(".", 1)[0] if "." in name else ""
             parent_linears[parent].append((name, linear))
 
+    def _natural_sort_key(item: tuple[str, list]) -> list:
+        """Sort 'blocks.10' after 'blocks.9', not before 'blocks.2'."""
+        return [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", item[0])]
+
     out_projs: List[str] = []
-    for parent, linears in sorted(parent_linears.items()):
+    for parent, linears in sorted(parent_linears.items(), key=_natural_sort_key):
         # Only transformer block MLPs, not attn_pool, head, etc.
         if "resblocks" not in parent and "blocks" not in parent:
             continue

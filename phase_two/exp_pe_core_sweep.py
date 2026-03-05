@@ -5,7 +5,7 @@ Gives PE-Core a fair shake — the initial 2-config test was too narrow to be co
 
 Configs tested:
   - p = {0.001, 0.005, 0.01}
-  - Modules: {late-3-fc2 (blocks 9-11 only), all-12-fc2}
+  - Modules: {late-3-fc2 (last 3 blocks), all-12-fc2}
   = 6 configs total
 
 Metrics: trace_pre AND weighted_trace_pre (our new best metric)
@@ -114,7 +114,7 @@ def main():
 
     fc2_all = get_mlp_output_projections(root)
     n_blocks = len(fc2_all)
-    # Late-3: last 3 blocks (like blocks 9-11 in 12-block model)
+    # Late-3: last 3 blocks (blocks 9-11 in 12-block model after sorting fix)
     fc2_late3 = fc2_all[n_blocks - 3:]
 
     print(f"PE-Core-B/16: {n_blocks} MLP output projections")
