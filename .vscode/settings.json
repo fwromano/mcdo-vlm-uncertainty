@@ -1,0 +1,7 @@
+{
+  "python.condaPath": "/Users/agc/miniforge3/bin/conda",
+  "python.defaultInterpreterPath": "/Users/agc/miniforge3/envs/mcdo/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "jupyter.jupyterServerType": "local",
+  "jupyter.notebookFileRoot": "${workspaceFolder}"
+}

@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
+.cache/
+.ipynb_checkpoints/
+round3/part1_baseline_embeddings/outputs/*.executed.ipynb
 
 # Large local datasets/artifacts (do not track)
 data/processed/
